@@ -35,24 +35,24 @@ GraphicEditor/
         sepia.frag          - сепия
     src/
         main.cpp
-        Editor.hpp / Editor.cpp         ← главный класс
-        Canvas.hpp / Canvas.cpp         ← холст (RenderTexture)
-        Shape.hpp                       ← абстрактный базовый класс фигур
-        CircleShape.hpp / .cpp          ← круг
-        RectShape.hpp / .cpp            ← прямоугольник
-        Tool.hpp                        ← абстрактный инструмент
-        PenTool.hpp / .cpp              ← инструмент кисть
-        ShapeTool.hpp / .cpp            ← инструмент фигуры
-        Command.hpp                     ← интерфейс Command
-        AddShapeCommand.hpp             ← команда добавления фигуры
-        CommandHistory.hpp / .cpp       ← стек с историей операцией
+        Editor.hpp / Editor.cpp         - главный класс
+        Canvas.hpp / Canvas.cpp         - холст (RenderTexture)
+        Shape.hpp                       - абстрактный базовый класс фигур
+        CircleShape.hpp / .cpp          - круг
+        RectShape.hpp / .cpp            - прямоугольник
+        Tool.hpp                        - абстрактный инструмент
+        PenTool.hpp / .cpp              - инструмент кисть
+        ShapeTool.hpp / .cpp            - инструмент фигуры
+        Command.hpp                     - интерфейс Command
+        AddShapeCommand.hpp             - команда добавления фигуры
+        CommandHistory.hpp / .cpp       - стек с историей операцией
 ```
 
 ---
 
 ## Архитектура и ООП
 
-### Иерархия классов
+### Иерархия классов ("+" - метод, "#" - переменная)
 
 ```
 Shape  (абстрактный)
@@ -92,3 +92,10 @@ Command  (абстрактный)
 | Закрыть | `Escape` или крестик |
 
 ---
+
+## Зависимости
+
+- C++17 и выше
+- CMake 3.16 и выше
+- SFML
+- Dear ImGUI (подтягивается автоматически с SFML)
