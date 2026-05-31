@@ -1,0 +1,24 @@
+# IDE
+.vscode/
+
+# build directory
+build/
+
+# Compiled files
+*.o
+*.obj
+*.exe
+*.out
+*.app
+
+# SFML и ImGui generated
+*.pdb
+*.ilk
+
+# Build directories
+build/
+cmake-build-*/
+
+# IDE
+.vscode/
+.idea/
