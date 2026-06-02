@@ -14,6 +14,15 @@ private:
     void processEvents();
     void update(float dt);
     void render();
+    void saveStateForUndo();
+
+    void onLoadImage();
+    void onSaveImage();
+    void onClearCanvas();
+    void onResizeCanvas();
+
+    std::string openFileDialog();
+    std::string saveFileDialog();
 
     sf::RenderWindow window;
     Localization localization;
