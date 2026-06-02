@@ -5,7 +5,6 @@
 #include <cmath>
 #include <vector>
 
-// BrushTool
 class BrushTool : public Tool {
 private:
     std::shared_ptr<Layer> layer;
@@ -36,7 +35,6 @@ public:
     std::string getName() const override { return "Brush"; }
 };
 
-// FillTool
 class FillTool : public Tool {
 private:
     std::shared_ptr<Layer> layer;
@@ -75,7 +73,6 @@ public:
     std::string getName() const override { return "Fill"; }
 };
 
-// EraserTool
 class EraserTool : public Tool {
 private:
     std::shared_ptr<Layer> layer;
@@ -106,7 +103,6 @@ public:
     std::string getName() const override { return "Eraser"; }
 };
 
-// PipetteTool – исправлен: обновляет brushColor[3]
 class PipetteTool : public Tool {
 private:
     std::shared_ptr<Layer> layer;

@@ -92,7 +92,6 @@ void createSelection(sf::RenderWindow& window, sf::RenderTexture& canvas,
         selectionTex.draw(sf::Sprite(tmpTex));
         selectionTex.display();
 
-        // Заливаем исходную область цветом фона (ластик)
         sf::RectangleShape eraser(sf::Vector2f(outRect.width, outRect.height));
         eraser.setPosition(outRect.left, outRect.top);
         eraser.setFillColor(bgColor);
@@ -161,7 +160,7 @@ int main() {
     bool isErasing = false;
 
     float brushSize = 10.f;
-    ImVec4 drawingColor = ImVec4(1.f, 1.f, 1.f, 1.f);  // белый
+    ImVec4 drawingColor = ImVec4(1.f, 1.f, 1.f, 1.f);
     ImVec4 oldColor = drawingColor;
 
     bool mouseLeftPressed = false;

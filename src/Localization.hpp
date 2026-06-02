@@ -14,7 +14,6 @@ private:
 
 public:
     Localization() : currentLang(Language::ENG) {
-        // Основные элементы UI
         translations["tools"] = {{Language::ENG, "Tools"}, {Language::RU, "Инструменты"}};
         translations["file"] = {{Language::ENG, "File"}, {Language::RU, "Файл"}};
         translations["brush"] = {{Language::ENG, "Brush"}, {Language::RU, "Кисть"}};

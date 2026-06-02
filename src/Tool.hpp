@@ -1,7 +1,6 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 
-// Базовый класс для всех инструментов
 class Tool {
 public:
     virtual ~Tool() = default;
