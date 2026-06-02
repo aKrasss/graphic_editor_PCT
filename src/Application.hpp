@@ -6,43 +6,44 @@
 #include "HistoryManager.hpp"
 
 class Application {
-public:
-    Application();
-    void run();
+    private:
+        void processEvents();
+        void update(float dt);
+        void render();
+        void saveStateForUndo();
 
-private:
-    void processEvents();
-    void update(float dt);
-    void render();
-    void saveStateForUndo();
+        void onLoadImage();
+        void onSaveImage();
+        void onClearCanvas();
+        void onResizeCanvas();
 
-    void onLoadImage();
-    void onSaveImage();
-    void onClearCanvas();
-    void onResizeCanvas();
+        std::string openFileDialog();
+        std::string saveFileDialog();
 
-    std::string openFileDialog();
-    std::string saveFileDialog();
+        sf::RenderWindow window;
+        Localization localization;
+        LayerManager layerManager;
+        EditorUI editorUI;
+        HistoryManager history;
 
-    sf::RenderWindow window;
-    Localization localization;
-    LayerManager layerManager;
-    EditorUI editorUI;
-    HistoryManager history;
+        sf::Vector2f canvasOffset;
+        float zoomLevel;
+        bool showGrid;
+        bool showRulers;
+        float brushSize;
+        float brushColor[3];
+        bool isDrawing;
+        sf::Vector2f lastMousePos;
+        sf::Vector2i mouseCanvasPos;
+        int canvasWidth;
+        int canvasHeight;
+        bool isPanning;
+        sf::Vector2f panStart;
 
-    sf::Vector2f canvasOffset;
-    float zoomLevel;
-    bool showGrid;
-    bool showRulers;
-    float brushSize;
-    float brushColor[3];
-    bool isDrawing;
-    sf::Vector2f lastMousePos;
-    sf::Vector2i mouseCanvasPos;
-    int canvasWidth;
-    int canvasHeight;
-    bool isPanning;
-    sf::Vector2f panStart;
+        sf::Clock deltaClock;
 
-    sf::Clock deltaClock;
+    public:
+        Application();
+        void run();
+
 };

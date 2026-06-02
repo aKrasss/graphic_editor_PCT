@@ -237,7 +237,7 @@ void Application::processEvents() {
 }
 
 void Application::update(float dt) {
-    (void)dt;
+    (void)dt; // пока не используется
     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
     sf::Vector2f canvasPos = (sf::Vector2f(mousePos) - canvasOffset) / zoomLevel;
     mouseCanvasPos = sf::Vector2i((int)canvasPos.x, (int)canvasPos.y);
