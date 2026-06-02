@@ -1,0 +1,39 @@
+#pragma once
+#include <SFML/Graphics.hpp>
+#include "Localization.hpp"
+#include "LayerManager.hpp"
+#include "EditorUI.hpp"
+#include "HistoryManager.hpp"
+
+class Application {
+public:
+    Application();
+    void run();
+
+private:
+    void processEvents();
+    void update(float dt);
+    void render();
+
+    sf::RenderWindow window;
+    Localization localization;
+    LayerManager layerManager;
+    EditorUI editorUI;
+    HistoryManager history;
+
+    sf::Vector2f canvasOffset;
+    float zoomLevel;
+    bool showGrid;
+    bool showRulers;
+    float brushSize;
+    float brushColor[3];
+    bool isDrawing;
+    sf::Vector2f lastMousePos;
+    sf::Vector2i mouseCanvasPos;
+    int canvasWidth;
+    int canvasHeight;
+    bool isPanning;
+    sf::Vector2f panStart;
+
+    sf::Clock deltaClock;
+};
