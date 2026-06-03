@@ -37,7 +37,6 @@ private:
     TextTool* textTool = nullptr;
     ShapeTool* shapeTool = nullptr;
 
-    // Вспомогательная функция для получения ключа локализации по имени инструмента
     std::string getToolKey(const std::string& toolName) {
         if (toolName == "Brush") return "brush";
         if (toolName == "Fill") return "fill";
@@ -49,13 +48,10 @@ private:
         return toolName;
     }
 
-    // Обновление имён слоёв в соответствии с текущим языком
     void updateLayerNames() {
         auto& layers = layerManager.getLayers();
         if (layers.empty()) return;
-        // Фоновый слой (первый)
         layers[0]->setName(localization.get("background"));
-        // Остальные слои: если имя совпадает с английским "New Layer" – переименовываем
         for (size_t i = 1; i < layers.size(); ++i) {
             if (layers[i]->getName() == "New Layer") {
                 layers[i]->setName(localization.get("new_layer"));
@@ -108,7 +104,7 @@ public:
         selectionTool = dynamic_cast<SelectionTool*>(tools[5].get());
         textTool = dynamic_cast<TextTool*>(tools[6].get());
 
-        updateLayerNames(); // применяем локализацию имён слоёв
+        updateLayerNames();
     }
 
     void setCurrentTool(int index) {
@@ -176,28 +172,25 @@ public:
         ImGui::Text("%s:", localization.get("language").c_str());
         if (ImGui::Button("English", ImVec2(140,25))) {
             localization.setLanguage(Language::ENG);
-            updateLayerNames(); // обновляем имена слоёв при смене языка
+            updateLayerNames();
         }
         ImGui::SameLine();
         if (ImGui::Button("Русский", ImVec2(140,25))) {
             localization.setLanguage(Language::RU);
-            updateLayerNames(); // обновляем имена слоёв при смене языка
+            updateLayerNames();
         }
         ImGui::Separator();
 
-        // Координаты мыши
         if (mouseCanvasPos) {
             ImGui::Text("%s: %d, %d", localization.get("mouse_pos").c_str(),
                        mouseCanvasPos->x, mouseCanvasPos->y);
         }
         ImGui::Separator();
 
-        // Текущий инструмент (переведённый)
         ImGui::Text("%s: %s", localization.get("tool").c_str(),
                    localization.get(getToolKey(currentToolName)).c_str());
         ImGui::Text("%s:", localization.get("tools").c_str());
 
-        // Список инструментов с локализованными названиями
         const char* toolKeys[] = {"brush", "fill", "eraser", "pipette", "shape", "selection", "text"};
         for (int i = 0; i < 7; ++i) {
             if (ImGui::Button(localization.get(toolKeys[i]).c_str(), ImVec2(90,25))) {
@@ -207,7 +200,6 @@ public:
         }
         ImGui::Separator();
 
-        // Настройки фигур (если выбран Shape)
         if (currentToolName == "Shape") {
             ImGui::Text("%s:", localization.get("shape_type").c_str());
             const char* shapeKeys[] = {"rectangle", "square", "circle", "ellipse", "line", "star"};
@@ -224,7 +216,6 @@ public:
         }
         ImGui::Separator();
 
-        // Масштаб
         if (zoomLevel) {
             ImGui::Text("%s: %.1f%%", localization.get("zoom").c_str(), *zoomLevel * 100.0f);
             if (ImGui::SliderFloat("##zoom", zoomLevel, 0.1f, 5.0f, "%.1f")) {
@@ -233,7 +224,6 @@ public:
         }
         ImGui::Separator();
 
-        // Размер холста
         if (canvasWidth && canvasHeight) {
             ImGui::Text("%s:", localization.get("canvas_size").c_str());
             ImGui::InputInt("Width##canvas", canvasWidth);
@@ -246,7 +236,6 @@ public:
         }
         ImGui::Separator();
 
-        // Настройки кисти
         if (brushSize && brushColor) {
             ImGui::Text("%s:", localization.get("brush").c_str());
             ImGui::SliderFloat("Size##brush", brushSize, 1.0f, 50.0f);
@@ -254,22 +243,18 @@ public:
         }
         ImGui::Separator();
 
-        // Сетка и линейки
         if (showGrid && showRulers) {
             ImGui::Checkbox(localization.get("grid").c_str(), showGrid);
             ImGui::Checkbox(localization.get("rulers").c_str(), showRulers);
         }
         ImGui::Separator();
 
-        // Слои
         renderLayersPanel();
         ImGui::Separator();
 
-        // Файловые операции
         renderFileOperations(onLoadImage, onSaveImage, onClearCanvas);
         ImGui::Separator();
 
-        // Фильтры
         ImGui::Text("%s:", localization.get("filters").c_str());
         if (ImGui::Button(localization.get("grayscale").c_str(), ImVec2(135,25))) { applyFilter<GrayscaleFilter>(); }
         ImGui::SameLine();
@@ -293,7 +278,6 @@ public:
         if (ImGui::Button(localization.get("new_layer").c_str(), ImVec2(280,25))) {
             layerManager.addLayer();
             updateToolLayer(layerManager.getCurrentLayer());
-            // Переименовываем новый слой на локализованное имя
             auto& layers = layerManager.getLayers();
             if (!layers.empty()) {
                 layers.back()->setName(localization.get("new_layer"));
@@ -346,25 +330,21 @@ public:
         float rulerHeight = 30.0f;
         float rulerSide = 30.0f;
 
-        // Горизонтальная линейка (правая часть)
         sf::RectangleShape hRuler(sf::Vector2f(windowSize.x - rulerSide, rulerHeight));
         hRuler.setPosition(rulerSide, 0);
         hRuler.setFillColor(sf::Color(220, 220, 220));
         window.draw(hRuler);
 
-        // Вертикальная линейка (нижняя часть)
         sf::RectangleShape vRuler(sf::Vector2f(rulerSide, windowSize.y - rulerHeight));
         vRuler.setPosition(0, rulerHeight);
         vRuler.setFillColor(sf::Color(220, 220, 220));
         window.draw(vRuler);
 
-        // Угловой квадрат
         sf::RectangleShape corner(sf::Vector2f(rulerSide, rulerHeight));
         corner.setPosition(0, 0);
         corner.setFillColor(sf::Color(220, 220, 220));
         window.draw(corner);
 
-        // Адаптивный шаг
         int targetScreenStep = 80;
         float stepPixels = targetScreenStep / zoomLevel;
         int step = 1;
@@ -381,7 +361,6 @@ public:
         sf::Font font;
         bool hasFont = font.loadFromFile("arialmt.ttf");
 
-        // Горизонтальные деления
         float visibleLeft = -canvasOffset.x / zoomLevel;
         float visibleRight = visibleLeft + windowSize.x / zoomLevel;
         int extendedRange = static_cast<int>(windowSize.x / zoomLevel) * 2;
@@ -389,18 +368,16 @@ public:
         int endX = static_cast<int>(visibleRight) + extendedRange;
         int firstTick = (startX / step) * step;
 
-        float minX = rulerSide + 5.0f;   // минимальное расстояние от левого края
+        float minX = rulerSide + 5.0f;
 
         for (int x = firstTick; x <= endX; x += step) {
             float screenX = canvasOffset.x + x * zoomLevel;
             if (screenX >= minX && screenX <= windowSize.x) {
-                // Чёрточка
                 sf::Vertex line[] = {
                     sf::Vertex(sf::Vector2f(screenX, 0), sf::Color::Black),
                     sf::Vertex(sf::Vector2f(screenX, rulerHeight - 5), sf::Color::Black)
                 };
                 window.draw(line, 2, sf::Lines);
-                // Цифра
                 if (hasFont && step >= 5) {
                     sf::Text text(std::to_string(x), font, 10);
                     text.setFillColor(sf::Color::Black);
@@ -410,14 +387,13 @@ public:
             }
         }
 
-        // Вертикальные деления
         float visibleTop = -canvasOffset.y / zoomLevel;
         float visibleBottom = visibleTop + windowSize.y / zoomLevel;
         int startY = static_cast<int>(visibleTop) - extendedRange;
         int endY = static_cast<int>(visibleBottom) + extendedRange;
         int firstTickY = (startY / step) * step;
 
-        float minY = rulerHeight + 5.0f;  // минимальное расстояние от верхнего края
+        float minY = rulerHeight + 5.0f;
 
         for (int y = firstTickY; y <= endY; y += step) {
             float screenY = canvasOffset.y + y * zoomLevel;
