@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/flame/ge/graphic_editor_PCT/build/_deps/imgui-sfml-subbuild/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
