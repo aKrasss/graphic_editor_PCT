@@ -28,19 +28,19 @@ private:
     sf::Color textColor;
     int fontSize;
     char inputBuffer[256];
-    
+
     std::vector<FontInfo> availableFonts;
     int selectedFontIndex;
     sf::Font currentFont;
-    
+
     float rotationAngle = 0.0f;
     bool flipX = false, flipY = false;
-    
+
     static bool fileExists(const std::string& path) {
         std::ifstream f(path.c_str());
         return f.good();
     }
-    
+
     void scanDirectoryForFonts(const std::string& dir, std::vector<FontInfo>& outFonts) {
         if (!std::filesystem::exists(dir)) return;
         try {
@@ -65,10 +65,9 @@ private:
                 }
             }
         } catch (const std::exception&) {
-            // игнорируем ошибки доступа
         }
     }
-    
+
     void loadFontsViaFcList() {
         FILE* pipe = popen("fc-list : file", "r");
         if (!pipe) return;
@@ -90,37 +89,32 @@ private:
         }
         pclose(pipe);
     }
-    
+
     void loadAvailableFonts() {
         availableFonts.clear();
-        
-        // 1. Локальные папки проекта
+
         std::vector<std::string> localFolders = {"fonts/", "src/fonts/", "../src/fonts/"};
         for (const auto& folder : localFolders) {
             if (std::filesystem::exists(folder))
                 scanDirectoryForFonts(folder, availableFonts);
         }
-        
-        // 2. Используем fc-list (самый надёжный способ на Linux)
+
         #ifdef __linux__
         loadFontsViaFcList();
         #endif
-        
-        // 3. Если fc-list ничего не дал, сканируем системные папки вручную
+
         if (availableFonts.empty()) {
             std::vector<std::string> systemPaths;
             #ifdef _WIN32
                 systemPaths = {"C:/Windows/Fonts/"};
             #elif __APPLE__
                 systemPaths = {"/System/Library/Fonts/", "/Library/Fonts/"};
-            #else
-                // Linux: основные каталоги шрифтов (включая msttcorefonts)
+                        #else
                 systemPaths = {
                     "/usr/share/fonts/",
                     "/usr/local/share/fonts/",
                     std::string(getenv("HOME")) + "/.fonts/",
                     std::string(getenv("HOME")) + "/.local/share/fonts/",
-                    // Добавляем конкретные пути для Microsoft TrueType Core Fonts
                     "/usr/share/fonts/truetype/msttcorefonts/",
                     "/usr/share/fonts/truetype/",
                     "/usr/share/fonts/opentype/",
@@ -134,14 +128,25 @@ private:
                     scanDirectoryForFonts(basePath, availableFonts);
             }
         }
-        
-        // Сортировка и удаление дубликатов
+
+        for (auto& info : availableFonts) {
+            std::error_code ec;
+            std::filesystem::path absPath = std::filesystem::absolute(info.path, ec);
+            if (!ec) {
+                info.path = absPath.string();
+            }
+        }
+
+        std::sort(availableFonts.begin(), availableFonts.end(),
+            [](const FontInfo& a, const FontInfo& b) { return a.path < b.path; });
+        availableFonts.erase(std::unique(availableFonts.begin(), availableFonts.end(),
+            [](const FontInfo& a, const FontInfo& b) { return a.path == b.path; }), availableFonts.end());
+
         std::sort(availableFonts.begin(), availableFonts.end(),
             [](const FontInfo& a, const FontInfo& b) { return a.name < b.name; });
         availableFonts.erase(std::unique(availableFonts.begin(), availableFonts.end(),
-            [](const FontInfo& a, const FontInfo& b) { return a.path == b.path; }), availableFonts.end());
-        
-        // Выбираем первый загружаемый шрифт
+            [](const FontInfo& a, const FontInfo& b) { return a.name == b.name; }), availableFonts.end());
+
         selectedFontIndex = -1;
         for (size_t i = 0; i < availableFonts.size(); ++i) {
             if (currentFont.loadFromFile(availableFonts[i].path)) {
@@ -150,7 +155,7 @@ private:
             }
         }
     }
-    
+
     bool loadFontFromIndex(int idx) {
         if (idx >= 0 && idx < (int)availableFonts.size()) {
             return currentFont.loadFromFile(availableFonts[idx].path);
@@ -159,7 +164,7 @@ private:
     }
 
 public:
-    TextTool(std::shared_ptr<Layer> l, Localization* loc) 
+    TextTool(std::shared_ptr<Layer> l, Localization* loc)
         : layer(l), localization(loc), waitingForText(false), fontSize(20), selectedFontIndex(-1)
     {
         memset(inputBuffer, 0, sizeof(inputBuffer));
@@ -180,10 +185,9 @@ public:
 
     void onDrag(sf::Vector2f, sf::Vector2f, sf::Color, float) override {}
     void onRelease() override {}
-
-    void renderTextPopup() {
+        void renderTextPopup() {
         if (!waitingForText) return;
-        
+
         if (availableFonts.empty()) {
             ImGui::OpenPopup("FontError");
             if (ImGui::BeginPopupModal("FontError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -200,29 +204,29 @@ public:
             }
             return;
         }
-        
+
         ImGui::OpenPopup(localization->get("text_dialog_title").c_str());
         if (ImGui::BeginPopupModal(localization->get("text_dialog_title").c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::Text("%s:", localization->get("text_label").c_str());
             ImGui::InputText("##text_input", inputBuffer, sizeof(inputBuffer));
-            
+
             ImGui::Text("Font:");
             std::vector<const char*> fontNames;
             for (auto& f : availableFonts) fontNames.push_back(f.name.c_str());
             if (ImGui::Combo("##font_select", &selectedFontIndex, fontNames.data(), fontNames.size())) {
                 loadFontFromIndex(selectedFontIndex);
             }
-            
+
             ImGui::Text("%s:", localization->get("font_size_label").c_str());
             ImGui::InputInt("##font_size_input", &fontSize);
             if (fontSize < 6) fontSize = 6;
-            
+
             ImGui::Text("Transform:");
             ImGui::SliderFloat("Rotate", &rotationAngle, 0.0f, 360.0f);
             ImGui::Checkbox("Flip X", &flipX); ImGui::SameLine();
             ImGui::Checkbox("Flip Y", &flipY);
             ImGui::Separator();
-            
+
             if (ImGui::Button(localization->get("ok").c_str())) {
                 if (strlen(inputBuffer) > 0 && layer && selectedFontIndex >= 0) {
                     sf::Text text;
@@ -232,12 +236,12 @@ public:
                     text.setCharacterSize(fontSize);
                     text.setFillColor(textColor);
                     text.setPosition(pressPos);
-                    
+
                     sf::Transform transform;
                     transform.rotate(rotationAngle, pressPos.x, pressPos.y);
                     if (flipX) transform.scale(-1, 1, pressPos.x, pressPos.y);
                     if (flipY) transform.scale(1, -1, pressPos.x, pressPos.y);
-                    
+
                     sf::RenderStates states;
                     states.transform = transform;
                     layer->getTexture().draw(text, states);

@@ -188,8 +188,7 @@ public:
     {
         if (saveStateCallback) saveStateCallback();
         auto layer = layerManager.getCurrentLayer();
-        if (!layer)
-            return;
+        if (!layer) return;
         sf::Image img = layer->getTexture().getTexture().copyToImage();
         FilterT filter(std::forward<Args>(args)...);
         filter.apply(img);
