@@ -1,5 +1,6 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include <functional>
 #include "Localization.hpp"
 #include "LayerManager.hpp"
 #include "EditorUI.hpp"
@@ -11,7 +12,8 @@ private:
     void update(float dt);
     void render();
     void saveStateForUndo();
-    void centerCanvas(); 
+    void centerCanvas();
+    void toggleFullscreen();
 
     void onLoadImage();
     void onSaveImage();
@@ -40,6 +42,7 @@ private:
     int canvasHeight;
     bool isPanning;
     sf::Vector2f panStart;
+    bool fullscreen;
 
     sf::Clock deltaClock;
 

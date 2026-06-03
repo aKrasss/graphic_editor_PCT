@@ -18,6 +18,9 @@ private:
     sf::Vector2f previewEnd;
     sf::Color currentColor;
     float currentThickness;
+    
+    float rotationAngle = 0.0f;
+    bool flipX = false, flipY = false;
 
     void drawThickLine(sf::RenderTexture& target, sf::Vector2f p1, sf::Vector2f p2, sf::Color color, float thickness) {
         sf::Vector2f direction = p2 - p1;
@@ -59,7 +62,15 @@ private:
         float w = std::abs(end.x - start.x);
         float h = std::abs(end.y - start.y);
         sf::Vector2f topLeft(std::min(start.x, end.x), std::min(start.y, end.y));
-
+        sf::Vector2f center = topLeft + sf::Vector2f(w/2, h/2);
+        
+        sf::Transform transform;
+        transform.rotate(rotationAngle, center.x, center.y);
+        if (flipX) transform.scale(-1, 1, center.x, center.y);
+        if (flipY) transform.scale(1, -1, center.x, center.y);
+        
+        auto transPoint = [&](sf::Vector2f p) { return transform.transformPoint(p); };
+        
         switch (shapeType) {
             case ShapeType::Rectangle: {
                 sf::RectangleShape rect(sf::Vector2f(w, h));
@@ -67,7 +78,7 @@ private:
                 rect.setFillColor(sf::Color::Transparent);
                 rect.setOutlineColor(color);
                 rect.setOutlineThickness(thickness);
-                layer->getTexture().draw(rect);
+                layer->getTexture().draw(rect, transform);
                 break;
             }
             case ShapeType::Square: {
@@ -77,7 +88,7 @@ private:
                 square.setFillColor(sf::Color::Transparent);
                 square.setOutlineColor(color);
                 square.setOutlineThickness(thickness);
-                layer->getTexture().draw(square);
+                layer->getTexture().draw(square, transform);
                 break;
             }
             case ShapeType::Circle: {
@@ -87,35 +98,48 @@ private:
                 circle.setFillColor(sf::Color::Transparent);
                 circle.setOutlineColor(color);
                 circle.setOutlineThickness(thickness);
-                layer->getTexture().draw(circle);
+                layer->getTexture().draw(circle, transform);
                 break;
             }
             case ShapeType::Ellipse: {
                 sf::ConvexShape ellipse;
                 ellipse.setPointCount(50);
                 float rx = w / 2, ry = h / 2;
-                sf::Vector2f center(topLeft.x + rx, topLeft.y + ry);
+                sf::Vector2f centerPoint(topLeft.x + rx, topLeft.y + ry);
                 for (int i = 0; i < 50; ++i) {
                     float angle = 2 * 3.14159f * i / 50;
-                    float x = center.x + rx * std::cos(angle);
-                    float y = center.y + ry * std::sin(angle);
+                    float x = centerPoint.x + rx * std::cos(angle);
+                    float y = centerPoint.y + ry * std::sin(angle);
                     ellipse.setPoint(i, sf::Vector2f(x, y));
                 }
                 ellipse.setFillColor(sf::Color::Transparent);
                 ellipse.setOutlineColor(color);
                 ellipse.setOutlineThickness(thickness);
-                layer->getTexture().draw(ellipse);
+                layer->getTexture().draw(ellipse, transform);
                 break;
             }
             case ShapeType::Line: {
-                drawThickLine(layer->getTexture(), start, end, color, thickness);
+                sf::Vector2f p1 = transPoint(start);
+                sf::Vector2f p2 = transPoint(end);
+                drawThickLine(layer->getTexture(), p1, p2, color, thickness);
                 break;
             }
             case ShapeType::Star: {
-                sf::Vector2f center = start;
                 float outerRadius = std::hypot(end.x - start.x, end.y - start.y);
                 float innerRadius = outerRadius * 0.4f;
-                drawStar(layer->getTexture(), center, outerRadius, innerRadius, 5, color, thickness);
+                std::vector<sf::Vector2f> vertices;
+                float angleStep = 360.0f / (2 * 5);
+                float startAngle = -90.0f;
+                for (int i = 0; i < 2 * 5; ++i) {
+                    float radius = (i % 2 == 0) ? outerRadius : innerRadius;
+                    float angle = (startAngle + i * angleStep) * 3.14159f / 180.0f;
+                    float x = center.x + radius * std::cos(angle);
+                    float y = center.y + radius * std::sin(angle);
+                    vertices.push_back(transPoint(sf::Vector2f(x, y)));
+                }
+                for (size_t i = 0; i < vertices.size(); ++i) {
+                    drawThickLine(layer->getTexture(), vertices[i], vertices[(i+1)%vertices.size()], color, thickness);
+                }
                 break;
             }
         }
@@ -129,9 +153,21 @@ private:
         float w = std::abs(endScreen.x - startScreen.x);
         float h = std::abs(endScreen.y - startScreen.y);
         sf::Vector2f topLeft(std::min(startScreen.x, endScreen.x), std::min(startScreen.y, endScreen.y));
+        sf::Vector2f centerScreen = topLeft + sf::Vector2f(w/2, h/2);
         sf::Color previewColor = currentColor;
         previewColor.a = 180;
-
+        
+        auto transPointScreen = [&](sf::Vector2f p) -> sf::Vector2f {
+            sf::Vector2f relative = p - centerScreen;
+            float angleRad = rotationAngle * 3.14159f / 180.0f;
+            float cosA = std::cos(angleRad), sinA = std::sin(angleRad);
+            float x = relative.x * cosA - relative.y * sinA;
+            float y = relative.x * sinA + relative.y * cosA;
+            if (flipX) x = -x;
+            if (flipY) y = -y;
+            return centerScreen + sf::Vector2f(x, y);
+        };
+        
         switch (shapeType) {
             case ShapeType::Rectangle: {
                 sf::RectangleShape rect(sf::Vector2f(w, h));
@@ -139,7 +175,11 @@ private:
                 rect.setFillColor(sf::Color::Transparent);
                 rect.setOutlineColor(previewColor);
                 rect.setOutlineThickness(currentThickness);
-                window.draw(rect);
+                sf::Transform t;
+                t.rotate(rotationAngle, centerScreen.x, centerScreen.y);
+                if (flipX) t.scale(-1, 1, centerScreen.x, centerScreen.y);
+                if (flipY) t.scale(1, -1, centerScreen.x, centerScreen.y);
+                window.draw(rect, t);
                 break;
             }
             case ShapeType::Square: {
@@ -149,7 +189,11 @@ private:
                 square.setFillColor(sf::Color::Transparent);
                 square.setOutlineColor(previewColor);
                 square.setOutlineThickness(currentThickness);
-                window.draw(square);
+                sf::Transform t;
+                t.rotate(rotationAngle, centerScreen.x, centerScreen.y);
+                if (flipX) t.scale(-1, 1, centerScreen.x, centerScreen.y);
+                if (flipY) t.scale(1, -1, centerScreen.x, centerScreen.y);
+                window.draw(square, t);
                 break;
             }
             case ShapeType::Circle: {
@@ -159,19 +203,23 @@ private:
                 circle.setFillColor(sf::Color::Transparent);
                 circle.setOutlineColor(previewColor);
                 circle.setOutlineThickness(currentThickness);
-                window.draw(circle);
+                sf::Transform t;
+                t.rotate(rotationAngle, centerScreen.x, centerScreen.y);
+                if (flipX) t.scale(-1, 1, centerScreen.x, centerScreen.y);
+                if (flipY) t.scale(1, -1, centerScreen.x, centerScreen.y);
+                window.draw(circle, t);
                 break;
             }
             case ShapeType::Ellipse: {
                 sf::ConvexShape ellipse;
                 ellipse.setPointCount(50);
                 float rx = w / 2, ry = h / 2;
-                sf::Vector2f center(topLeft.x + rx, topLeft.y + ry);
+                sf::Vector2f centerPoint(topLeft.x + rx, topLeft.y + ry);
                 for (int i = 0; i < 50; ++i) {
                     float angle = 2 * 3.14159f * i / 50;
-                    float x = center.x + rx * std::cos(angle);
-                    float y = center.y + ry * std::sin(angle);
-                    ellipse.setPoint(i, sf::Vector2f(x, y));
+                    float x = centerPoint.x + rx * std::cos(angle);
+                    float y = centerPoint.y + ry * std::sin(angle);
+                    ellipse.setPoint(i, transPointScreen(sf::Vector2f(x, y)));
                 }
                 ellipse.setFillColor(sf::Color::Transparent);
                 ellipse.setOutlineColor(previewColor);
@@ -180,11 +228,12 @@ private:
                 break;
             }
             case ShapeType::Line: {
-                drawThickLinePreview(window, startScreen, endScreen, previewColor, currentThickness);
+                sf::Vector2f p1 = transPointScreen(startScreen);
+                sf::Vector2f p2 = transPointScreen(endScreen);
+                drawThickLinePreview(window, p1, p2, previewColor, currentThickness);
                 break;
             }
             case ShapeType::Star: {
-                sf::Vector2f centerScreen = startScreen;
                 float outerRadius = std::hypot(endScreen.x - startScreen.x, endScreen.y - startScreen.y);
                 float innerRadius = outerRadius * 0.4f;
                 int points = 5;
@@ -196,7 +245,7 @@ private:
                     float angle = (startAngle + i * angleStep) * 3.14159f / 180.0f;
                     float x = centerScreen.x + radius * std::cos(angle);
                     float y = centerScreen.y + radius * std::sin(angle);
-                    vertices.push_back(sf::Vector2f(x, y));
+                    vertices.push_back(transPointScreen(sf::Vector2f(x, y)));
                 }
                 for (size_t i = 0; i < vertices.size(); ++i) {
                     drawThickLinePreview(window, vertices[i], vertices[(i+1)%vertices.size()], previewColor, currentThickness);
@@ -229,6 +278,8 @@ public:
 
     void setLayer(std::shared_ptr<Layer> l) { layer = l; }
     void setShapeType(ShapeType type) { shapeType = type; }
+    void setRotation(float angle) { rotationAngle = angle; }
+    void setFlip(bool x, bool y) { flipX = x; flipY = y; }
 
     void onPress(sf::Vector2f pos, sf::Color color, float size) override {
         if (!layer) return;

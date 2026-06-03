@@ -20,6 +20,45 @@ static bool fileExists(const std::string& path) {
     return f.good();
 }
 
+static void reinitImGui(sf::RenderWindow& window) {
+    ImGui::SFML::Shutdown();
+    if (!ImGui::SFML::Init(window)) {
+        throw std::runtime_error("Failed to reinit ImGui-SFML");
+    }
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = 8.0f;
+    style.FrameRounding = 8.0f;
+    style.GrabRounding = 8.0f;
+    style.PopupRounding = 6.0f;
+    style.ChildRounding = 6.0f;
+    style.ScrollbarRounding = 8.0f;
+    style.Colors[ImGuiCol_Button] = ImVec4(0.2f, 0.6f, 0.8f, 0.8f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.3f, 0.7f, 0.9f, 1.0f);
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.1f, 0.5f, 0.7f, 1.0f);
+    
+    ImGuiIO& io = ImGui::GetIO();
+    std::vector<std::string> fontPaths = {
+        "fonts/arialmt.ttf", "fonts/arial.ttf",
+        "arialmt.ttf", "arial.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "C:/Windows/Fonts/arial.ttf"
+    };
+    bool fontLoaded = false;
+    for (const auto& path : fontPaths) {
+        if (fileExists(path)) {
+            ImFont* font = io.Fonts->AddFontFromFileTTF(path.c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+            if (font) {
+                io.FontDefault = font;
+                fontLoaded = true;
+                break;
+            }
+        }
+    }
+    if (!fontLoaded) io.FontDefault = io.Fonts->AddFontDefault();
+    if (io.FontDefault) (void)ImGui::SFML::UpdateFontTexture();
+}
+
 Application::Application()
     : window(sf::VideoMode(1600,1000), "Graphic Editor"),
       layerManager(1000,800),
@@ -32,7 +71,8 @@ Application::Application()
       isDrawing(false),
       canvasWidth(1000),
       canvasHeight(800),
-      isPanning(false)
+      isPanning(false),
+      fullscreen(false)
 {
     window.setFramerateLimit(60);
     if (!ImGui::SFML::Init(window)) {
@@ -51,17 +91,13 @@ Application::Application()
     style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.1f, 0.5f, 0.7f, 1.0f);
 
     ImGuiIO& io = ImGui::GetIO();
-    
     std::vector<std::string> fontPaths = {
-        "fonts/arialmt.ttf",
-        "fonts/arial.ttf",
-        "arialmt.ttf",
-        "arial.ttf",
+        "fonts/arialmt.ttf", "fonts/arial.ttf",
+        "arialmt.ttf", "arial.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "C:/Windows/Fonts/arial.ttf"
     };
-    
     bool fontLoaded = false;
     for (const auto& path : fontPaths) {
         if (fileExists(path)) {
@@ -73,14 +109,8 @@ Application::Application()
             }
         }
     }
-    
-    if (!fontLoaded) {
-        io.FontDefault = io.Fonts->AddFontDefault();
-    }
-    
-    if (io.FontDefault) {
-        (void)ImGui::SFML::UpdateFontTexture();
-    }
+    if (!fontLoaded) io.FontDefault = io.Fonts->AddFontDefault();
+    if (io.FontDefault) (void)ImGui::SFML::UpdateFontTexture();
 
     brushColor[0] = 0.0f; brushColor[1] = 0.0f; brushColor[2] = 0.0f;
 
@@ -89,8 +119,8 @@ Application::Application()
                            &canvasWidth, &canvasHeight,
                            &mouseCanvasPos);
     editorUI.setSaveStateCallback([this]() { saveStateForUndo(); });
+    editorUI.setToggleFullscreenCallback([this]() { toggleFullscreen(); });
     editorUI.initTools(layerManager.getCurrentLayer(), brushColor);
-    
     centerCanvas();
 }
 
@@ -102,6 +132,18 @@ void Application::centerCanvas() {
     canvasOffset.y = (viewHeight - canvasHeight * zoomLevel) / 2.0f;
     if (canvasOffset.x < 0) canvasOffset.x = 0;
     if (canvasOffset.y < 0) canvasOffset.y = 0;
+}
+
+void Application::toggleFullscreen() {
+    fullscreen = !fullscreen;
+    if (fullscreen) {
+        window.create(sf::VideoMode::getDesktopMode(), "Graphic Editor", sf::Style::Fullscreen);
+    } else {
+        window.create(sf::VideoMode(1600, 1000), "Graphic Editor", sf::Style::Default);
+    }
+    reinitImGui(window);
+    editorUI.setToggleFullscreenCallback([this]() { toggleFullscreen(); });
+    centerCanvas();
 }
 
 void Application::saveStateForUndo() {
@@ -234,7 +276,17 @@ void Application::processEvents() {
             centerCanvas();
         }
 
-        if(event.type == sf::Event::KeyPressed){
+        if(event.type == sf::Event::KeyPressed && !ImGui::GetIO().WantCaptureKeyboard) {
+            switch (event.key.code) {
+                case sf::Keyboard::B: editorUI.setCurrentTool(0); break;
+                case sf::Keyboard::G: editorUI.setCurrentTool(1); break;
+                case sf::Keyboard::E: editorUI.setCurrentTool(2); break;
+                case sf::Keyboard::I: editorUI.setCurrentTool(3); break;
+                case sf::Keyboard::U: editorUI.setCurrentTool(4); break;
+                case sf::Keyboard::S: editorUI.setCurrentTool(5); break;
+                case sf::Keyboard::T: editorUI.setCurrentTool(6); break;
+                default: break;
+            }
             if(event.key.control && event.key.code == sf::Keyboard::Z){
                 if(history.canUndo()){
                     CanvasState state = history.undo();
@@ -347,6 +399,8 @@ void Application::render() {
         [this](){ onClearCanvas(); },
         [this](){ onResizeCanvas(); }
     );
+
+    editorUI.renderStatusBar(window);
 
     ImGui::SFML::Render(window);
     window.display();

@@ -21,6 +21,8 @@ private:
     char inputBuffer[256];
     sf::Font cachedFont;
     bool fontLoaded;
+    float rotationAngle = 0.0f;
+    bool flipX = false, flipY = false;
 
     static bool fileExists(const std::string& path) {
         std::ifstream f(path.c_str());
@@ -30,17 +32,12 @@ private:
     void loadFont() {
         if (fontLoaded) return;
         std::vector<std::string> fontPaths = {
-            "fonts/arialmt.ttf",
-            "fonts/arial.ttf",
-            "arialmt.ttf",
-            "arial.ttf",
+            "fonts/arialmt.ttf", "fonts/arial.ttf",
+            "arialmt.ttf", "arial.ttf",
             "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/ubuntu/Ubuntu-Regular.ttf",
-            "C:/Windows/Fonts/arial.ttf",
-            "C:/Windows/Fonts/segoeui.ttf"
+            "C:/Windows/Fonts/arial.ttf"
         };
-
         for (const auto& path : fontPaths) {
             if (fileExists(path) && cachedFont.loadFromFile(path)) {
                 fontLoaded = true;
@@ -51,8 +48,8 @@ private:
     }
 
 public:
-    TextTool(std::shared_ptr<Layer> l, Localization* loc)
-        : layer(l), localization(loc), waitingForText(false), fontSize(20), fontLoaded(false)
+    TextTool(std::shared_ptr<Layer> l, Localization* loc) 
+        : layer(l), localization(loc), waitingForText(false), fontSize(20), fontLoaded(false) 
     {
         memset(inputBuffer, 0, sizeof(inputBuffer));
         loadFont();
@@ -66,6 +63,8 @@ public:
         textColor = color;
         waitingForText = true;
         memset(inputBuffer, 0, sizeof(inputBuffer));
+        rotationAngle = 0.0f;
+        flipX = flipY = false;
     }
 
     void onDrag(sf::Vector2f, sf::Vector2f, sf::Color, float) override {}
@@ -78,8 +77,8 @@ public:
             ImGui::OpenPopup("FontError");
             if (ImGui::BeginPopupModal("FontError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
                 ImGui::Text("Font not loaded. Cannot add text.");
-                ImGui::Text("Expected file: fonts/arialmt.ttf or arial.ttf");
-                ImGui::Text("in the program folder or system fonts.");
+                ImGui::Text("Please place a TrueType font (.ttf) file");
+                ImGui::Text("named 'arial.ttf' in the program folder.");
                 if (ImGui::Button("OK", ImVec2(120, 0))) {
                     ImGui::CloseCurrentPopup();
                     waitingForText = false;
@@ -98,6 +97,12 @@ public:
             ImGui::Text("%s:", localization->get("font_size_label").c_str());
             ImGui::InputInt("##font_size_input", &fontSize);
             if (fontSize < 6) fontSize = 6;
+            
+            ImGui::Text("Transform:");
+            ImGui::SliderFloat("Rotate", &rotationAngle, 0.0f, 360.0f);
+            ImGui::Checkbox("Flip X", &flipX); ImGui::SameLine();
+            ImGui::Checkbox("Flip Y", &flipY);
+            ImGui::Separator();
 
             if (ImGui::Button(localization->get("ok").c_str())) {
                 if (strlen(inputBuffer) > 0 && layer) {
@@ -108,7 +113,15 @@ public:
                     text.setCharacterSize(fontSize);
                     text.setFillColor(textColor);
                     text.setPosition(pressPos);
-                    layer->getTexture().draw(text);
+                    
+                    sf::Transform transform;
+                    transform.rotate(rotationAngle, pressPos.x, pressPos.y);
+                    if (flipX) transform.scale(-1, 1, pressPos.x, pressPos.y);
+                    if (flipY) transform.scale(1, -1, pressPos.x, pressPos.y);
+                    
+                    sf::RenderStates states;
+                    states.transform = transform;
+                    layer->getTexture().draw(text, states);
                     layer->display();
                 }
                 waitingForText = false;

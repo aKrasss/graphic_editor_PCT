@@ -1,9 +1,6 @@
 # IDE
 .vscode/
 
-# build directory
-build/
-
 # Compiled files
 *.o
 *.obj

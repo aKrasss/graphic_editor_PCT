@@ -13,6 +13,7 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
+#include <cstdint>
 
 class EditorUI
 {
@@ -39,6 +40,34 @@ private:
     ShapeTool *shapeTool = nullptr;
 
     std::function<void()> saveStateCallback;
+    std::function<void()> toggleFullscreenCallback;
+
+    // Иконки
+    sf::Texture iconPen, iconEraser, iconFill, iconPipette, iconShape, iconSelection, iconText, iconGarbage;
+    ImTextureID penTextureID = nullptr, eraserTextureID = nullptr, fillTextureID = nullptr;
+    ImTextureID pipetteTextureID = nullptr, shapeTextureID = nullptr, selectionTextureID = nullptr, textTextureID = nullptr, garbageTextureID = nullptr;
+    bool iconsLoaded;
+
+    void loadIcons() {
+        iconsLoaded = false;
+        auto loadTex = [&](sf::Texture& tex, const std::string& name) -> ImTextureID {
+            if (tex.loadFromFile("Textures/" + name) || tex.loadFromFile("src/Textures/" + name)) {
+                return reinterpret_cast<ImTextureID>(static_cast<uintptr_t>(tex.getNativeHandle()));
+            }
+            return nullptr;
+        };
+        penTextureID = loadTex(iconPen, "pen.png");
+        eraserTextureID = loadTex(iconEraser, "eraser.png");
+        fillTextureID = loadTex(iconFill, "fill.png");
+        pipetteTextureID = loadTex(iconPipette, "pipette.png");
+        shapeTextureID = loadTex(iconShape, "figure.png");
+        selectionTextureID = loadTex(iconSelection, "selection.png");
+        textTextureID = loadTex(iconText, "text.png");
+        garbageTextureID = loadTex(iconGarbage, "garbage.png");
+        
+        iconsLoaded = (penTextureID || eraserTextureID || fillTextureID || pipetteTextureID ||
+                       shapeTextureID || selectionTextureID || textTextureID || garbageTextureID);
+    }
 
     std::string getToolKey(const std::string &toolName)
     {
@@ -71,7 +100,10 @@ public:
           showGrid(nullptr), showRulers(nullptr),
           canvasWidth(nullptr), canvasHeight(nullptr),
           mouseCanvasPos(nullptr),
-          currentToolName("Brush") {}
+          currentToolName("Brush")
+    {
+        loadIcons();
+    }
 
     void setParameters(float *bSize, float *bColor, float *zoom,
                        bool *grid, bool *rulers,
@@ -88,10 +120,8 @@ public:
         mouseCanvasPos = mousePos;
     }
 
-    void setSaveStateCallback(std::function<void()> callback)
-    {
-        saveStateCallback = callback;
-    }
+    void setSaveStateCallback(std::function<void()> callback) { saveStateCallback = callback; }
+    void setToggleFullscreenCallback(std::function<void()> callback) { toggleFullscreenCallback = callback; }
 
     void initTools(std::shared_ptr<Layer> layer, float *brushColorArray)
     {
@@ -169,11 +199,11 @@ public:
         layer->display();
     }
 
-    void setCurrentToolName(const std::string &name)
-    {
-        currentToolName = name;
-    }
+    void setCurrentToolName(const std::string &name) { currentToolName = name; }
 
+    // ------------------------------------------------------------
+    // Отрисовка панели инструментов (ширина 360px)
+    // ------------------------------------------------------------
     void renderToolPanel(sf::RenderWindow &window,
                          std::function<void()> onLoadImage,
                          std::function<void()> onSaveImage,
@@ -184,25 +214,70 @@ public:
         ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 8.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
 
-        float panelWidth = 320.0f;
+        float panelWidth = 360.0f;  // уменьшено на 20% от 450
         float rulerHeight = 30.0f;
+        float statusBarHeight = 25.0f;
         ImGui::SetNextWindowPos(ImVec2(window.getSize().x - panelWidth, rulerHeight));
-        ImGui::SetNextWindowSize(ImVec2(panelWidth, window.getSize().y - rulerHeight));
+        ImGui::SetNextWindowSize(ImVec2(panelWidth, window.getSize().y - rulerHeight - statusBarHeight));
         ImGui::Begin(localization.get("tools").c_str(), nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
-        const char *toolKeys[] = {"brush", "fill", "eraser", "pipette", "shape", "selection", "text"};
-        int numTools = 7;
-        int cols = 2;
-        for (int i = 0; i < numTools; ++i)
+        // ----- 1. Настройки и помощь -----
+        if (ImGui::Button(localization.get("settings").c_str(), ImVec2(170, 30)))
+            ImGui::OpenPopup("SettingsPopup");
+        ImGui::SameLine();
+        if (ImGui::Button(localization.get("help").c_str(), ImVec2(170, 30)))
+            ImGui::OpenPopup("HelpPopup");
+        renderSettingsPopup();
+        renderHelpPopup();
+        ImGui::Separator();
+
+        // ----- 2. Файловые операции -----
+        if (ImGui::Button(localization.get("load").c_str(), ImVec2(110, 30)))
         {
-            if (ImGui::Button(localization.get(toolKeys[i]).c_str(), ImVec2(140, 30)))
-                setCurrentTool(i);
-            if ((i + 1) % cols != 0 && i != numTools - 1)
-                ImGui::SameLine();
+            if (onLoadImage) onLoadImage();
+            updateToolLayer(layerManager.getCurrentLayer());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(localization.get("save").c_str(), ImVec2(110, 30)))
+        {
+            if (onSaveImage) onSaveImage();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button(localization.get("clear").c_str(), ImVec2(110, 30)))
+        {
+            if (onClearCanvas) onClearCanvas();
         }
         ImGui::Separator();
 
+        // ----- 3. Инструменты (в одну строку, 7 штук) -----
+        struct ToolInfo { const char* key; char hotkey; ImTextureID texID; };
+        ToolInfo infos[] = {
+            {"brush", 'B', penTextureID},
+            {"fill", 'G', fillTextureID},
+            {"eraser", 'E', eraserTextureID},
+            {"pipette", 'I', pipetteTextureID},
+            {"shape", 'U', shapeTextureID},
+            {"selection", 'S', selectionTextureID},
+            {"text", 'T', textTextureID}
+        };
+        for (int i = 0; i < 7; ++i) {
+            std::string label = localization.get(infos[i].key);
+            std::string tooltip = label + " (" + infos[i].hotkey + ")";
+            bool clicked = false;
+            if (infos[i].texID) {
+                clicked = ImGui::ImageButton(infos[i].texID, ImVec2(30,30));
+            } else {
+                clicked = ImGui::Button(label.c_str(), ImVec2(48, 30));
+            }
+            if (clicked) setCurrentTool(i);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", tooltip.c_str());
+            if (i < 6) ImGui::SameLine();
+        }
+        ImGui::Separator();
+
+        // ----- 4. Параметры инструментов -----
         if (currentToolName == "Shape")
         {
             ImGui::Text("%s:", localization.get("shape_type").c_str());
@@ -210,13 +285,20 @@ public:
             static int shapeIdx = 0;
             std::string shapeNamesStr[6];
             const char *shapeNames[6];
-            for (int i = 0; i < 6; ++i)
-            {
+            for (int i = 0; i < 6; ++i) {
                 shapeNamesStr[i] = localization.get(shapeKeys[i]);
                 shapeNames[i] = shapeNamesStr[i].c_str();
             }
             if (ImGui::Combo("##shape", &shapeIdx, shapeNames, 6))
                 setCurrentShapeType((ShapeType)shapeIdx);
+            
+            ImGui::Text("Transform:");
+            static float rotationAngle = 0.0f;
+            static bool flipX = false, flipY = false;
+            if (ImGui::SliderFloat("Rotate", &rotationAngle, 0.0f, 360.0f))
+                if (shapeTool) shapeTool->setRotation(rotationAngle);
+            if (ImGui::Checkbox("Flip X", &flipX) || ImGui::Checkbox("Flip Y", &flipY))
+                if (shapeTool) shapeTool->setFlip(flipX, flipY);
             ImGui::Separator();
         }
 
@@ -228,6 +310,7 @@ public:
             ImGui::Separator();
         }
 
+        // ----- 5. Масштаб и размер холста -----
         if (zoomLevel)
         {
             ImGui::Text("%s:", localization.get("zoom").c_str());
@@ -236,59 +319,13 @@ public:
             ImGui::Separator();
         }
 
-        if (mouseCanvasPos)
-        {
-            ImGui::Text("%s: %d, %d", localization.get("mouse_pos").c_str(),
-                        mouseCanvasPos->x, mouseCanvasPos->y);
-            ImGui::Separator();
-        }
-
-        ImGui::Text("%s:", localization.get("language").c_str());
-        if (ImGui::Button("English", ImVec2(140, 25)))
-        {
-            localization.setLanguage(Language::ENG);
-            updateLayerNames();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Русский", ImVec2(140, 25)))
-        {
-            localization.setLanguage(Language::RU);
-            updateLayerNames();
-        }
-        ImGui::Separator();
-
-        if (showGrid && showRulers)
-        {
-            ImGui::Checkbox(localization.get("grid").c_str(), showGrid);
-            ImGui::Checkbox(localization.get("rulers").c_str(), showRulers);
-            ImGui::Separator();
-        }
-
-        if (ImGui::Button(localization.get("load").c_str(), ImVec2(145, 30)))
-        {
-            if (onLoadImage) onLoadImage();
-            updateToolLayer(layerManager.getCurrentLayer());
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(localization.get("save").c_str(), ImVec2(145, 30)))
-        {
-            if (onSaveImage) onSaveImage();
-        }
-        if (ImGui::Button(localization.get("clear").c_str(), ImVec2(300, 30)))
-        {
-            if (onClearCanvas) onClearCanvas();
-        }
-        ImGui::Separator();
-
         if (canvasWidth && canvasHeight)
         {
             ImGui::Text("%s:", localization.get("canvas_size").c_str());
             int minSize = 100, maxSize = 5000;
             static int prevW = *canvasWidth, prevH = *canvasHeight;
-            
             ImGui::SliderInt("Width", canvasWidth, minSize, maxSize);
             ImGui::SliderInt("Height", canvasHeight, minSize, maxSize);
-            
             if ((prevW != *canvasWidth || prevH != *canvasHeight) && onResizeCanvas)
             {
                 onResizeCanvas();
@@ -297,10 +334,20 @@ public:
             ImGui::Separator();
         }
 
+        // ----- 6. Сетка / Линейки -----
+        if (showGrid && showRulers)
+        {
+            ImGui::Checkbox(localization.get("grid").c_str(), showGrid);
+            ImGui::Checkbox(localization.get("rulers").c_str(), showRulers);
+            ImGui::Separator();
+        }
+
+        // ----- 7. Слои -----
         renderLayersPanel();
         ImGui::Separator();
 
-        if (ImGui::Button(localization.get("filters").c_str(), ImVec2(300, 30)))
+        // ----- 8. Фильтры -----
+        if (ImGui::Button(localization.get("filters").c_str(), ImVec2(340, 30)))
             ImGui::OpenPopup("filter_popup");
         if (ImGui::BeginPopup("filter_popup"))
         {
@@ -320,10 +367,82 @@ public:
         if (textTool) textTool->renderTextPopup();
     }
 
+    void renderSettingsPopup()
+    {
+        if (ImGui::BeginPopupModal("SettingsPopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImGui::Text("%s:", localization.get("language").c_str());
+            if (ImGui::Button("English", ImVec2(120, 0)))
+            {
+                localization.setLanguage(Language::ENG);
+                updateLayerNames();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Русский", ImVec2(120, 0)))
+            {
+                localization.setLanguage(Language::RU);
+                updateLayerNames();
+            }
+            ImGui::Separator();
+
+            ImGui::Text("Display Mode:");
+            if (ImGui::Button("Windowed", ImVec2(120, 0)))
+            {
+                if (toggleFullscreenCallback) toggleFullscreenCallback();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Fullscreen", ImVec2(120, 0)))
+            {
+                if (toggleFullscreenCallback) toggleFullscreenCallback();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::Separator();
+
+            if (ImGui::Button("Close", ImVec2(120, 0)))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+    }
+
+    void renderHelpPopup()
+    {
+        if (ImGui::BeginPopupModal("HelpPopup", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (localization.getLanguage() == Language::RU) {
+                ImGui::Text("Графический редактор - Справка");
+                ImGui::Separator();
+                ImGui::BulletText("Инструменты: Кисть(B), Заливка(G), Ластик(E), Пипетка(I), Фигура(U), Выделение(S), Текст(T)");
+                ImGui::BulletText("Горячие клавиши: Ctrl+Z = Отменить, Ctrl+Y = Повторить");
+                ImGui::BulletText("Холст: Изменение размера слайдерами на панели инструментов");
+                ImGui::BulletText("Слои: Добавить, удалить (кроме фона), изменить прозрачность");
+                ImGui::BulletText("Фильтры: Оттенки серого, Инверсия, Размытие, Резкость, Сепия, Яркость");
+                ImGui::BulletText("Сетка/Линейки: Включить/выключить на панели");
+                ImGui::BulletText("Полноэкранный режим: Настройки -> Fullscreen");
+                ImGui::BulletText("Поворот/отражение: Выберите фигуру, настройте параметры трансформации");
+            } else {
+                ImGui::Text("Graphic Editor - Help");
+                ImGui::Separator();
+                ImGui::BulletText("Tools: Brush(B), Fill(G), Eraser(E), Pipette(I), Shape(U), Selection(S), Text(T)");
+                ImGui::BulletText("Shortcuts: Ctrl+Z = Undo, Ctrl+Y = Redo");
+                ImGui::BulletText("Canvas: Resize using sliders in Tools panel");
+                ImGui::BulletText("Layers: Add, delete (except background), adjust opacity");
+                ImGui::BulletText("Filters: Grayscale, Invert, Blur, Sharpen, Sepia, Brightness");
+                ImGui::BulletText("Grid/Rulers: Toggle in Tools panel");
+                ImGui::BulletText("Fullscreen: Settings -> Fullscreen");
+                ImGui::BulletText("Rotation/Flip: Select Shape tool, adjust transform params");
+            }
+            ImGui::Separator();
+            if (ImGui::Button("OK", ImVec2(120, 0)))
+                ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+    }
+
     void renderLayersPanel()
     {
         ImGui::Text("%s:", localization.get("layers").c_str());
-        if (ImGui::Button(localization.get("new_layer").c_str(), ImVec2(300, 25)))
+        if (ImGui::Button(localization.get("new_layer").c_str(), ImVec2(340, 25)))
         {
             layerManager.addLayer();
             updateToolLayer(layerManager.getCurrentLayer());
@@ -341,19 +460,77 @@ public:
                 layerManager.setCurrentLayer(i);
                 updateToolLayer(layerManager.getCurrentLayer());
             }
+            
             float opacity = layers[i]->getOpacity();
             ImGui::Text("%s:", localization.get("opacity").c_str());
             if (ImGui::SliderFloat("##opacity", &opacity, 0.0f, 1.0f, "%.2f"))
                 layers[i]->setOpacity(opacity);
+            
+            if (i != 0) {
+                if (garbageTextureID) {
+                    if (ImGui::ImageButton(garbageTextureID, ImVec2(20, 20)))
+                    {
+                        layerManager.deleteLayer(i);
+                        updateToolLayer(layerManager.getCurrentLayer());
+                        ImGui::PopID();
+                        return;
+                    }
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Delete layer");
+                    ImGui::SameLine();
+                    ImGui::Text(" Delete");
+                } else {
+                    if (ImGui::Button("Delete Layer", ImVec2(100, 20)))
+                    {
+                        layerManager.deleteLayer(i);
+                        updateToolLayer(layerManager.getCurrentLayer());
+                        ImGui::PopID();
+                        return;
+                    }
+                }
+            }
+            ImGui::Separator();
             ImGui::PopID();
-        }
-        if (layers.size() > 1 && ImGui::Button(localization.get("delete_layer").c_str(), ImVec2(300, 25)))
-        {
-            layerManager.deleteLayer(layerManager.getCurrentLayerIndex());
-            updateToolLayer(layerManager.getCurrentLayer());
         }
     }
 
+    // Строка состояния
+    void renderStatusBar(sf::RenderWindow &window)
+    {
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::SetNextWindowPos(ImVec2(0, window.getSize().y - 25));
+        ImGui::SetNextWindowSize(ImVec2(window.getSize().x, 25));
+        ImGui::Begin("StatusBar", nullptr,
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
+        
+        if (mouseCanvasPos)
+        {
+            ImGui::Text("Mouse: (%d, %d)", mouseCanvasPos->x, mouseCanvasPos->y);
+            ImGui::SameLine();
+        }
+        if (zoomLevel)
+        {
+            ImGui::Text("Zoom: %.1f%%", *zoomLevel * 100.0f);
+            ImGui::SameLine();
+        }
+        if (canvasWidth && canvasHeight)
+        {
+            ImGui::Text("Canvas: %dx%d", *canvasWidth, *canvasHeight);
+            ImGui::SameLine();
+        }
+        if (showGrid && showRulers)
+        {
+            ImGui::Text("Grid: %s", *showGrid ? "ON" : "OFF");
+            ImGui::SameLine();
+            ImGui::Text("Rulers: %s", *showRulers ? "ON" : "OFF");
+        }
+        ImGui::End();
+        ImGui::PopStyleVar();
+    }
+
+    // ------------------------------------------------------------
+    // renderRulers, renderGrid, renderSelectionOverlay (без изменений)
+    // ------------------------------------------------------------
     void renderRulers(sf::RenderWindow &window,
                       sf::Vector2f canvasOffset,
                       float zoomLevel,
