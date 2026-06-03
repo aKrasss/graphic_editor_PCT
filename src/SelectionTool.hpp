@@ -13,8 +13,9 @@ private:
     bool hasSelection;
     sf::Image selectedArea;
     sf::Vector2f selectedAreaPos;
-    sf::Vector2f originalAreaPos;
     bool isDraggingSelection;
+    sf::Vector2f dragStartPos;
+    sf::Vector2f dragStartSelectionPos;
     sf::Color overlayColor;
 
 public:
@@ -31,12 +32,16 @@ public:
                                selectedArea.getSize().x, selectedArea.getSize().y);
             if (rect.contains(pos)) {
                 isDraggingSelection = true;
-                selectionStart = pos;
-                originalAreaPos = selectedAreaPos;
+                dragStartPos = pos;
+                dragStartSelectionPos = selectedAreaPos;
                 return;
             } else {
                 hasSelection = false;
                 selectedArea = sf::Image();
+                isSelecting = true;
+                selectionStart = pos;
+                selectionEnd = pos;
+                return;
             }
         }
         isSelecting = true;
@@ -44,9 +49,20 @@ public:
         selectionEnd = pos;
     }
 
-    void onDrag(sf::Vector2f from, sf::Vector2f to, sf::Color, float) override {
+    void onDrag(sf::Vector2f /*from*/, sf::Vector2f to, sf::Color, float) override {
         if (isDraggingSelection) {
-            selectedAreaPos += to - from;
+            sf::Vector2f delta = to - dragStartPos;
+            sf::Vector2f newPos = dragStartSelectionPos + delta;
+
+            sf::Vector2u canvasSize = layer->getTexture().getSize();
+            float maxX = static_cast<float>(canvasSize.x - selectedArea.getSize().x);
+            float maxY = static_cast<float>(canvasSize.y - selectedArea.getSize().y);
+            if (maxX < 0) maxX = 0;
+            if (maxY < 0) maxY = 0;
+            newPos.x = std::max(0.0f, std::min(newPos.x, maxX));
+            newPos.y = std::max(0.0f, std::min(newPos.y, maxY));
+
+            selectedAreaPos = newPos;
         } else if (isSelecting) {
             selectionEnd = to;
         }
@@ -59,8 +75,8 @@ public:
                 return;
             }
             sf::Image layerImage = layer->getTexture().getTexture().copyToImage();
-            int x1 = (int)originalAreaPos.x;
-            int y1 = (int)originalAreaPos.y;
+            int x1 = (int)dragStartSelectionPos.x;
+            int y1 = (int)dragStartSelectionPos.y;
             int w = selectedArea.getSize().x;
             int h = selectedArea.getSize().y;
             for (int y = y1; y < y1 + h; ++y) {
@@ -80,8 +96,21 @@ public:
             layer->getTexture().draw(sprite);
             layer->display();
 
-            hasSelection = false;
-            selectedArea = sf::Image();
+            sf::Image newSelectedArea;
+            newSelectedArea.create(w, h);
+            sf::Image updatedLayerImage = layer->getTexture().getTexture().copyToImage();
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    int sx = (int)selectedAreaPos.x + x;
+                    int sy = (int)selectedAreaPos.y + y;
+                    if (sx >= 0 && sx < (int)updatedLayerImage.getSize().x && sy >= 0 && sy < (int)updatedLayerImage.getSize().y) {
+                        newSelectedArea.setPixel(x, y, updatedLayerImage.getPixel(sx, sy));
+                    } else {
+                        newSelectedArea.setPixel(x, y, sf::Color::White);
+                    }
+                }
+            }
+            selectedArea = std::move(newSelectedArea);
             isDraggingSelection = false;
         }
         else if (isSelecting) {
@@ -98,7 +127,6 @@ public:
                     for (int x = 0; x < w; ++x)
                         selectedArea.setPixel(x, y, layerImage.getPixel(x1 + x, y1 + y));
                 selectedAreaPos = sf::Vector2f(x1, y1);
-                originalAreaPos = selectedAreaPos;
                 hasSelection = true;
             }
             isSelecting = false;
