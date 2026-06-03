@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# ========== ПАРАМЕТРЫ ==========
 FORCE=0
 if [[ "$1" == "--force" ]]; then
     FORCE=1
