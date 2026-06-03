@@ -147,6 +147,13 @@ public:
         return sf::FloatRect();
     }
 
+    void resetSelection() {
+        hasSelection = false;
+        isSelecting = false;
+        isDraggingSelection = false;
+        selectedArea = sf::Image();
+    }
+
     bool isActive() const { return isSelecting || hasSelection; }
     sf::Color getOverlayColor() const { return overlayColor; }
 

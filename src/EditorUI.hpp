@@ -152,6 +152,7 @@ public:
     {
         if (index >= 0 && index < (int)tools.size())
         {
+            if (currentTool == selectionTool) { selectionTool->resetSelection(); }
             currentTool = tools[index].get();
             setCurrentToolName(currentTool->getName());
         }
