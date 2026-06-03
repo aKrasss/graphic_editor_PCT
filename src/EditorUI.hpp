@@ -42,7 +42,6 @@ private:
     std::function<void()> saveStateCallback;
     std::function<void()> toggleFullscreenCallback;
 
-    // Иконки
     sf::Texture iconPen, iconEraser, iconFill, iconPipette, iconShape, iconSelection, iconText, iconGarbage;
     ImTextureID penTextureID = nullptr, eraserTextureID = nullptr, fillTextureID = nullptr;
     ImTextureID pipetteTextureID = nullptr, shapeTextureID = nullptr, selectionTextureID = nullptr, textTextureID = nullptr, garbageTextureID = nullptr;
@@ -64,7 +63,7 @@ private:
         selectionTextureID = loadTex(iconSelection, "selection.png");
         textTextureID = loadTex(iconText, "text.png");
         garbageTextureID = loadTex(iconGarbage, "garbage.png");
-        
+
         iconsLoaded = (penTextureID || eraserTextureID || fillTextureID || pipetteTextureID ||
                        shapeTextureID || selectionTextureID || textTextureID || garbageTextureID);
     }
@@ -201,9 +200,6 @@ public:
 
     void setCurrentToolName(const std::string &name) { currentToolName = name; }
 
-    // ------------------------------------------------------------
-    // Отрисовка панели инструментов (ширина 360px)
-    // ------------------------------------------------------------
     void renderToolPanel(sf::RenderWindow &window,
                          std::function<void()> onLoadImage,
                          std::function<void()> onSaveImage,
@@ -214,7 +210,7 @@ public:
         ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 8.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
 
-        float panelWidth = 360.0f;  // уменьшено на 20% от 450
+        float panelWidth = 360.0f;
         float rulerHeight = 30.0f;
         float statusBarHeight = 25.0f;
         ImGui::SetNextWindowPos(ImVec2(window.getSize().x - panelWidth, rulerHeight));
@@ -222,7 +218,6 @@ public:
         ImGui::Begin(localization.get("tools").c_str(), nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
-        // ----- 1. Настройки и помощь -----
         if (ImGui::Button(localization.get("settings").c_str(), ImVec2(170, 30)))
             ImGui::OpenPopup("SettingsPopup");
         ImGui::SameLine();
@@ -232,7 +227,6 @@ public:
         renderHelpPopup();
         ImGui::Separator();
 
-        // ----- 2. Файловые операции -----
         if (ImGui::Button(localization.get("load").c_str(), ImVec2(110, 30)))
         {
             if (onLoadImage) onLoadImage();
@@ -250,7 +244,6 @@ public:
         }
         ImGui::Separator();
 
-        // ----- 3. Инструменты (в одну строку, 7 штук) -----
         struct ToolInfo { const char* key; char hotkey; ImTextureID texID; };
         ToolInfo infos[] = {
             {"brush", 'B', penTextureID},
@@ -277,7 +270,6 @@ public:
         }
         ImGui::Separator();
 
-        // ----- 4. Параметры инструментов -----
         if (currentToolName == "Shape")
         {
             ImGui::Text("%s:", localization.get("shape_type").c_str());
@@ -291,7 +283,7 @@ public:
             }
             if (ImGui::Combo("##shape", &shapeIdx, shapeNames, 6))
                 setCurrentShapeType((ShapeType)shapeIdx);
-            
+
             ImGui::Text("Transform:");
             static float rotationAngle = 0.0f;
             static bool flipX = false, flipY = false;
@@ -310,7 +302,6 @@ public:
             ImGui::Separator();
         }
 
-        // ----- 5. Масштаб и размер холста -----
         if (zoomLevel)
         {
             ImGui::Text("%s:", localization.get("zoom").c_str());
@@ -334,7 +325,6 @@ public:
             ImGui::Separator();
         }
 
-        // ----- 6. Сетка / Линейки -----
         if (showGrid && showRulers)
         {
             ImGui::Checkbox(localization.get("grid").c_str(), showGrid);
@@ -342,11 +332,9 @@ public:
             ImGui::Separator();
         }
 
-        // ----- 7. Слои -----
         renderLayersPanel();
         ImGui::Separator();
 
-        // ----- 8. Фильтры -----
         if (ImGui::Button(localization.get("filters").c_str(), ImVec2(340, 30)))
             ImGui::OpenPopup("filter_popup");
         if (ImGui::BeginPopup("filter_popup"))
@@ -460,12 +448,12 @@ public:
                 layerManager.setCurrentLayer(i);
                 updateToolLayer(layerManager.getCurrentLayer());
             }
-            
+
             float opacity = layers[i]->getOpacity();
             ImGui::Text("%s:", localization.get("opacity").c_str());
             if (ImGui::SliderFloat("##opacity", &opacity, 0.0f, 1.0f, "%.2f"))
                 layers[i]->setOpacity(opacity);
-            
+
             if (i != 0) {
                 if (garbageTextureID) {
                     if (ImGui::ImageButton(garbageTextureID, ImVec2(20, 20)))
@@ -494,7 +482,6 @@ public:
         }
     }
 
-    // Строка состояния
     void renderStatusBar(sf::RenderWindow &window)
     {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
@@ -502,7 +489,7 @@ public:
         ImGui::SetNextWindowSize(ImVec2(window.getSize().x, 25));
         ImGui::Begin("StatusBar", nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoTitleBar);
-        
+
         if (mouseCanvasPos)
         {
             ImGui::Text("Mouse: (%d, %d)", mouseCanvasPos->x, mouseCanvasPos->y);
@@ -528,9 +515,6 @@ public:
         ImGui::PopStyleVar();
     }
 
-    // ------------------------------------------------------------
-    // renderRulers, renderGrid, renderSelectionOverlay (без изменений)
-    // ------------------------------------------------------------
     void renderRulers(sf::RenderWindow &window,
                       sf::Vector2f canvasOffset,
                       float zoomLevel,

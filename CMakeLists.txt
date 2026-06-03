@@ -39,3 +39,14 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE sfml-graphics sfml-window sfml-system
     PRIVATE ImGui-SFML::ImGui-SFML
 )
+
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fonts)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/Textures)
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/fonts)
+    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/src/fonts DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/Textures)
+    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/src/Textures DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
