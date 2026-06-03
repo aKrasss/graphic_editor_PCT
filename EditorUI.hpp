@@ -337,6 +337,131 @@ public:
         }
     }
 
+    void renderRulers(sf::RenderWindow& window,
+                    sf::Vector2f canvasOffset,
+                    float zoomLevel,
+                    int canvasWidth,
+                    int canvasHeight) {
+        sf::Vector2u windowSize = window.getSize();
+        float rulerHeight = 30.0f;
+        float rulerSide = 30.0f;
+
+        // Горизонтальная линейка (правая часть)
+        sf::RectangleShape hRuler(sf::Vector2f(windowSize.x - rulerSide, rulerHeight));
+        hRuler.setPosition(rulerSide, 0);
+        hRuler.setFillColor(sf::Color(220, 220, 220));
+        window.draw(hRuler);
+
+        // Вертикальная линейка (нижняя часть)
+        sf::RectangleShape vRuler(sf::Vector2f(rulerSide, windowSize.y - rulerHeight));
+        vRuler.setPosition(0, rulerHeight);
+        vRuler.setFillColor(sf::Color(220, 220, 220));
+        window.draw(vRuler);
+
+        // Угловой квадрат
+        sf::RectangleShape corner(sf::Vector2f(rulerSide, rulerHeight));
+        corner.setPosition(0, 0);
+        corner.setFillColor(sf::Color(220, 220, 220));
+        window.draw(corner);
+
+        // Адаптивный шаг
+        int targetScreenStep = 80;
+        float stepPixels = targetScreenStep / zoomLevel;
+        int step = 1;
+        if (stepPixels >= 500) step = 500;
+        else if (stepPixels >= 200) step = 200;
+        else if (stepPixels >= 100) step = 100;
+        else if (stepPixels >= 50) step = 50;
+        else if (stepPixels >= 20) step = 20;
+        else if (stepPixels >= 10) step = 10;
+        else if (stepPixels >= 5) step = 5;
+        else if (stepPixels >= 2) step = 2;
+        else step = 1;
+
+        sf::Font font;
+        bool hasFont = font.loadFromFile("arialmt.ttf");
+
+        // Горизонтальные деления
+        float visibleLeft = -canvasOffset.x / zoomLevel;
+        float visibleRight = visibleLeft + windowSize.x / zoomLevel;
+        int extendedRange = static_cast<int>(windowSize.x / zoomLevel) * 2;
+        int startX = static_cast<int>(visibleLeft) - extendedRange;
+        int endX = static_cast<int>(visibleRight) + extendedRange;
+        int firstTick = (startX / step) * step;
+
+        float minX = rulerSide + 5.0f;   // минимальное расстояние от левого края
+
+        for (int x = firstTick; x <= endX; x += step) {
+            float screenX = canvasOffset.x + x * zoomLevel;
+            if (screenX >= minX && screenX <= windowSize.x) {
+                // Чёрточка
+                sf::Vertex line[] = {
+                    sf::Vertex(sf::Vector2f(screenX, 0), sf::Color::Black),
+                    sf::Vertex(sf::Vector2f(screenX, rulerHeight - 5), sf::Color::Black)
+                };
+                window.draw(line, 2, sf::Lines);
+                // Цифра
+                if (hasFont && step >= 5) {
+                    sf::Text text(std::to_string(x), font, 10);
+                    text.setFillColor(sf::Color::Black);
+                    text.setPosition(screenX - 10, rulerHeight - 20);
+                    window.draw(text);
+                }
+            }
+        }
+
+        // Вертикальные деления
+        float visibleTop = -canvasOffset.y / zoomLevel;
+        float visibleBottom = visibleTop + windowSize.y / zoomLevel;
+        int startY = static_cast<int>(visibleTop) - extendedRange;
+        int endY = static_cast<int>(visibleBottom) + extendedRange;
+        int firstTickY = (startY / step) * step;
+
+        float minY = rulerHeight + 5.0f;  // минимальное расстояние от верхнего края
+
+        for (int y = firstTickY; y <= endY; y += step) {
+            float screenY = canvasOffset.y + y * zoomLevel;
+            if (screenY >= minY && screenY <= windowSize.y) {
+                sf::Vertex line[] = {
+                    sf::Vertex(sf::Vector2f(0, screenY), sf::Color::Black),
+                    sf::Vertex(sf::Vector2f(rulerSide - 5, screenY), sf::Color::Black)
+                };
+                window.draw(line, 2, sf::Lines);
+                if (hasFont && step >= 5) {
+                    sf::Text text(std::to_string(y), font, 10);
+                    text.setFillColor(sf::Color::Black);
+                    text.setPosition(rulerSide - 20, screenY - 6);
+                    window.draw(text);
+                }
+            }
+        }
+    }
+
+    void renderGrid(sf::RenderWindow& window,
+                    sf::Vector2f canvasOffset,
+                    float zoomLevel,
+                    int canvasWidth,
+                    int canvasHeight) {
+        int gridSize = 10;
+        sf::Color gridColor(180, 180, 180, 200);
+        for (int x = 0; x <= canvasWidth; x += gridSize) {
+            sf::Vertex line[] = {
+                sf::Vertex(sf::Vector2f(canvasOffset.x + x * zoomLevel, canvasOffset.y), gridColor),
+                sf::Vertex(sf::Vector2f(canvasOffset.x + x * zoomLevel,
+                                       canvasOffset.y + canvasHeight * zoomLevel), gridColor)
+            };
+            window.draw(line, 2, sf::Lines);
+        }
+        for (int y = 0; y <= canvasHeight; y += gridSize) {
+            sf::Vertex line[] = {
+                sf::Vertex(sf::Vector2f(canvasOffset.x, canvasOffset.y + y * zoomLevel), gridColor),
+                sf::Vertex(sf::Vector2f(canvasOffset.x + canvasWidth * zoomLevel,
+                                       canvasOffset.y + y * zoomLevel), gridColor)
+            };
+            window.draw(line, 2, sf::Lines);
+        }
+    }
+
     void renderSelectionOverlay(sf::RenderWindow& window, sf::Vector2f canvasOffset, float zoomLevel) {
         if (selectionTool && selectionTool->isActive()) {
             sf::FloatRect rect = selectionTool->getSelectionRect();
