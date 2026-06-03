@@ -6,24 +6,25 @@
 #include <fstream>
 
 #ifdef _WIN32
-    #include <windows.h>
-    #include <commdlg.h>
+#include <windows.h>
+#include <commdlg.h>
 #else
-    #include <cstdlib>
-    #include <cstdio>
-    #include <array>
+#include <cstdlib>
+#include <cstdio>
+#include <array>
 #endif
 
-static bool fileExists(const std::string& path) {
+static bool fileExists(const std::string &path)
+{
     std::ifstream f(path.c_str());
     return f.good();
 }
 
 Application::Application()
-    : window(sf::VideoMode(1600,1000), "Graphic Editor"),
-      layerManager(1000,800),
+    : window(sf::VideoMode(1600, 1000), "Graphic Editor"),
+      layerManager(1000, 800),
       editorUI(localization, layerManager),
-      canvasOffset(50.0f,50.0f),
+      canvasOffset(50.0f, 50.0f),
       zoomLevel(1.0f),
       showGrid(false),
       showRulers(true),
@@ -34,63 +35,78 @@ Application::Application()
       isPanning(false)
 {
     window.setFramerateLimit(60);
-    if (!ImGui::SFML::Init(window)) {
+    if (!ImGui::SFML::Init(window))
+    {
         throw std::runtime_error("Failed to initialize ImGui-SFML");
     }
 
-    ImGuiIO& io = ImGui::GetIO();
-    
+    ImGuiIO &io = ImGui::GetIO();
+
     std::vector<std::string> fontPaths = {
+        "fonts/arialmt.ttf", // <-- добавлен путь к папке fonts
+        "fonts/arial.ttf",
         "arialmt.ttf",
         "arial.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "C:/Windows/Fonts/arial.ttf"
-    };
-    
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "C:/Windows/Fonts/arial.ttf"};
+
     bool fontLoaded = false;
-    for (const auto& path : fontPaths) {
-        if (fileExists(path)) {
-            ImFont* font = io.Fonts->AddFontFromFileTTF(path.c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-            if (font) {
+    for (const auto &path : fontPaths)
+    {
+        if (std::ifstream(path).good())
+        {
+            ImFont *font = io.Fonts->AddFontFromFileTTF(path.c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+            if (font)
+            {
                 io.FontDefault = font;
                 fontLoaded = true;
                 break;
             }
         }
     }
-    
-    if (!fontLoaded) {
+
+    if (!fontLoaded)
+    {
         io.FontDefault = io.Fonts->AddFontDefault();
     }
-    
-    if (io.FontDefault) {
-        ImGui::SFML::UpdateFontTexture();
+
+    if (io.FontDefault)
+    {
+        (void)ImGui::SFML::UpdateFontTexture();
     }
 
-    brushColor[0] = 0.0f; brushColor[1] = 0.0f; brushColor[2] = 0.0f;
+    brushColor[0] = 0.0f;
+    brushColor[1] = 0.0f;
+    brushColor[2] = 0.0f;
 
     editorUI.setParameters(&brushSize, brushColor, &zoomLevel,
                            &showGrid, &showRulers,
                            &canvasWidth, &canvasHeight,
                            &mouseCanvasPos);
-    editorUI.setSaveStateCallback([this]() { saveStateForUndo(); });
+    editorUI.setSaveStateCallback([this]()
+                                  { saveStateForUndo(); });
     editorUI.initTools(layerManager.getCurrentLayer(), brushColor);
 }
 
-void Application::saveStateForUndo() {
+void Application::saveStateForUndo()
+{
     auto layer = layerManager.getCurrentLayer();
-    if (layer) {
+    if (layer)
+    {
         sf::Image img = layer->getTexture().getTexture().copyToImage();
         history.saveState(img, layerManager.getCurrentLayerIndex());
     }
 }
 
-void Application::applyFilterWithUndo(std::function<void()> filterFunc) {
+void Application::applyFilterWithUndo(std::function<void()> filterFunc)
+{
     saveStateForUndo();
     filterFunc();
 }
 
-std::string Application::openFileDialog() {
+std::string Application::openFileDialog()
+{
 #ifdef _WIN32
     OPENFILENAMEA ofn;
     char szFile[260] = {0};
@@ -102,21 +118,27 @@ std::string Application::openFileDialog() {
     ofn.lpstrFilter = "Image Files\0*.png;*.jpg;*.jpeg;*.bmp\0All Files\0*.*\0";
     ofn.nFilterIndex = 1;
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-    if (GetOpenFileNameA(&ofn)) return std::string(szFile);
+    if (GetOpenFileNameA(&ofn))
+        return std::string(szFile);
     return "";
 #else
-    auto deleter = [](FILE* f) { if (f) pclose(f); };
-    std::unique_ptr<FILE, decltype(deleter)> pipe(popen("zenity --file-selection --title='Open Image'","r"), deleter);
-    if(!pipe) return "";
-    std::array<char,128> buf;
+    auto deleter = [](FILE *f)
+    { if (f) pclose(f); };
+    std::unique_ptr<FILE, decltype(deleter)> pipe(popen("zenity --file-selection --title='Open Image'", "r"), deleter);
+    if (!pipe)
+        return "";
+    std::array<char, 128> buf;
     std::string res;
-    while(fgets(buf.data(),buf.size(),pipe.get())) res+=buf.data();
-    if(!res.empty() && res.back()=='\n') res.pop_back();
+    while (fgets(buf.data(), buf.size(), pipe.get()))
+        res += buf.data();
+    if (!res.empty() && res.back() == '\n')
+        res.pop_back();
     return res;
 #endif
 }
 
-std::string Application::saveFileDialog() {
+std::string Application::saveFileDialog()
+{
 #ifdef _WIN32
     OPENFILENAMEA ofn;
     char szFile[260] = {0};
@@ -129,32 +151,43 @@ std::string Application::saveFileDialog() {
     ofn.nFilterIndex = 1;
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
     ofn.lpstrDefExt = "png";
-    if (GetSaveFileNameA(&ofn)) return std::string(szFile);
+    if (GetSaveFileNameA(&ofn))
+        return std::string(szFile);
     return "";
 #else
-    auto deleter = [](FILE* f) { if (f) pclose(f); };
-    std::unique_ptr<FILE, decltype(deleter)> pipe(popen("zenity --file-selection --save --confirm-overwrite","r"), deleter);
-    if(!pipe) return "";
-    std::array<char,128> buf;
+    auto deleter = [](FILE *f)
+    { if (f) pclose(f); };
+    std::unique_ptr<FILE, decltype(deleter)> pipe(popen("zenity --file-selection --save --confirm-overwrite", "r"), deleter);
+    if (!pipe)
+        return "";
+    std::array<char, 128> buf;
     std::string res;
-    while(fgets(buf.data(),buf.size(),pipe.get())) res+=buf.data();
-    if(!res.empty() && res.back()=='\n') res.pop_back();
-    if(!res.empty() && res.find('.')==std::string::npos) res+=".png";
+    while (fgets(buf.data(), buf.size(), pipe.get()))
+        res += buf.data();
+    if (!res.empty() && res.back() == '\n')
+        res.pop_back();
+    if (!res.empty() && res.find('.') == std::string::npos)
+        res += ".png";
     return res;
 #endif
 }
 
-void Application::onLoadImage() {
+void Application::onLoadImage()
+{
     std::string path = openFileDialog();
-    if(!path.empty()){
+    if (!path.empty())
+    {
         sf::Image img;
-        if(img.loadFromFile(path)){
+        if (img.loadFromFile(path))
+        {
             canvasWidth = img.getSize().x;
             canvasHeight = img.getSize().y;
             layerManager.resizeLayers(canvasWidth, canvasHeight);
             auto layer = layerManager.getCurrentLayer();
-            if(layer){
-                sf::Texture tex; tex.loadFromImage(img);
+            if (layer)
+            {
+                sf::Texture tex;
+                tex.loadFromImage(img);
                 layer->getTexture().clear(sf::Color::Transparent);
                 layer->getTexture().draw(sf::Sprite(tex));
                 layer->display();
@@ -165,59 +198,76 @@ void Application::onLoadImage() {
     }
 }
 
-void Application::onSaveImage() {
+void Application::onSaveImage()
+{
     std::string path = saveFileDialog();
-    if(!path.empty()){
+    if (!path.empty())
+    {
         sf::RenderTexture finalTex;
         finalTex.create(canvasWidth, canvasHeight);
         finalTex.clear(sf::Color::White);
-        for(auto& l : layerManager.getLayers())
-            if(l->isVisible()) finalTex.draw(l->getSprite());
+        for (auto &l : layerManager.getLayers())
+            if (l->isVisible())
+                finalTex.draw(l->getSprite());
         finalTex.display();
         finalTex.getTexture().copyToImage().saveToFile(path);
     }
 }
 
-void Application::onClearCanvas() {
+void Application::onClearCanvas()
+{
     auto layer = layerManager.getCurrentLayer();
-    if(layer){
+    if (layer)
+    {
         saveStateForUndo();
         layer->clear(sf::Color::White);
     }
 }
 
-void Application::onResizeCanvas() {
+void Application::onResizeCanvas()
+{
     layerManager.resizeLayers(canvasWidth, canvasHeight);
     editorUI.updateToolLayer(layerManager.getCurrentLayer());
     saveStateForUndo();
 }
 
-void Application::processEvents() {
+void Application::processEvents()
+{
     sf::Event event;
-    while(window.pollEvent(event)){
+    while (window.pollEvent(event))
+    {
         ImGui::SFML::ProcessEvent(event);
-        if(event.type == sf::Event::Closed)
+        if (event.type == sf::Event::Closed)
             window.close();
 
-        if(event.type == sf::Event::KeyPressed){
-            if(event.key.control && event.key.code == sf::Keyboard::Z){
-                if(history.canUndo()){
+        if (event.type == sf::Event::KeyPressed)
+        {
+            if (event.key.control && event.key.code == sf::Keyboard::Z)
+            {
+                if (history.canUndo())
+                {
                     CanvasState state = history.undo();
                     auto layer = layerManager.getCurrentLayer();
-                    if(layer && state.layerId == layerManager.getCurrentLayerIndex()){
-                        sf::Texture tex; tex.loadFromImage(state.image);
+                    if (layer && state.layerId == layerManager.getCurrentLayerIndex())
+                    {
+                        sf::Texture tex;
+                        tex.loadFromImage(state.image);
                         layer->getTexture().clear(sf::Color::Transparent);
                         layer->getTexture().draw(sf::Sprite(tex));
                         layer->display();
                     }
                 }
             }
-            else if(event.key.control && event.key.code == sf::Keyboard::Y){
-                if(history.canRedo()){
+            else if (event.key.control && event.key.code == sf::Keyboard::Y)
+            {
+                if (history.canRedo())
+                {
                     CanvasState state = history.redo();
                     auto layer = layerManager.getCurrentLayer();
-                    if(layer && state.layerId == layerManager.getCurrentLayerIndex()){
-                        sf::Texture tex; tex.loadFromImage(state.image);
+                    if (layer && state.layerId == layerManager.getCurrentLayerIndex())
+                    {
+                        sf::Texture tex;
+                        tex.loadFromImage(state.image);
                         layer->getTexture().clear(sf::Color::Transparent);
                         layer->getTexture().draw(sf::Sprite(tex));
                         layer->display();
@@ -226,43 +276,52 @@ void Application::processEvents() {
             }
         }
 
-        if(event.type == sf::Event::MouseWheelScrolled && !ImGui::GetIO().WantCaptureMouse){
+        if (event.type == sf::Event::MouseWheelScrolled && !ImGui::GetIO().WantCaptureMouse)
+        {
             float delta = event.mouseWheelScroll.delta;
             float oldZoom = zoomLevel;
             zoomLevel += delta * 0.1f;
-            zoomLevel = std::max(0.1f, std::min(zoomLevel,5.0f));
+            zoomLevel = std::max(0.1f, std::min(zoomLevel, 5.0f));
             sf::Vector2i mp = sf::Mouse::getPosition(window);
             sf::Vector2f wp = sf::Vector2f(mp) - canvasOffset;
-            canvasOffset += wp * (1.0f - zoomLevel/oldZoom);
+            canvasOffset += wp * (1.0f - zoomLevel / oldZoom);
         }
 
-        if(event.type == sf::Event::MouseButtonPressed){
-            if(event.mouseButton.button == sf::Mouse::Left && !ImGui::GetIO().WantCaptureMouse && !isPanning){
+        if (event.type == sf::Event::MouseButtonPressed)
+        {
+            if (event.mouseButton.button == sf::Mouse::Left && !ImGui::GetIO().WantCaptureMouse && !isPanning)
+            {
                 sf::Vector2i mp = sf::Mouse::getPosition(window);
                 sf::Vector2f cp = (sf::Vector2f(mp) - canvasOffset) / zoomLevel;
-                if(cp.x>=0 && cp.x<canvasWidth && cp.y>=0 && cp.y<canvasHeight){
+                if (cp.x >= 0 && cp.x < canvasWidth && cp.y >= 0 && cp.y < canvasHeight)
+                {
                     isDrawing = true;
                     lastMousePos = cp;
                     saveStateForUndo();
-                    sf::Color col(brushColor[0]*255, brushColor[1]*255, brushColor[2]*255);
+                    sf::Color col(brushColor[0] * 255, brushColor[1] * 255, brushColor[2] * 255);
                     editorUI.getCurrentTool()->onPress(cp, col, brushSize);
                 }
             }
-            if(event.mouseButton.button == sf::Mouse::Middle && !ImGui::GetIO().WantCaptureMouse){
+            if (event.mouseButton.button == sf::Mouse::Middle && !ImGui::GetIO().WantCaptureMouse)
+            {
                 isPanning = true;
                 panStart = sf::Vector2f(sf::Mouse::getPosition(window));
             }
         }
 
-        if(event.type == sf::Event::MouseButtonReleased){
-            if(event.mouseButton.button == sf::Mouse::Left && isDrawing){
+        if (event.type == sf::Event::MouseButtonReleased)
+        {
+            if (event.mouseButton.button == sf::Mouse::Left && isDrawing)
+            {
                 editorUI.getCurrentTool()->onRelease();
                 isDrawing = false;
             }
-            if(event.mouseButton.button == sf::Mouse::Middle) isPanning = false;
+            if (event.mouseButton.button == sf::Mouse::Middle)
+                isPanning = false;
         }
 
-        if(event.type == sf::Event::MouseMoved && isPanning){
+        if (event.type == sf::Event::MouseMoved && isPanning)
+        {
             sf::Vector2f mp = sf::Vector2f(sf::Mouse::getPosition(window));
             canvasOffset += mp - panStart;
             panStart = mp;
@@ -270,25 +329,30 @@ void Application::processEvents() {
     }
 }
 
-void Application::update(float dt) {
+void Application::update(float dt)
+{
     (void)dt;
     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
     sf::Vector2f canvasPos = (sf::Vector2f(mousePos) - canvasOffset) / zoomLevel;
     mouseCanvasPos = sf::Vector2i((int)canvasPos.x, (int)canvasPos.y);
 
-    if(isDrawing && !isPanning && sf::Mouse::isButtonPressed(sf::Mouse::Left)){
+    if (isDrawing && !isPanning && sf::Mouse::isButtonPressed(sf::Mouse::Left))
+    {
         sf::Vector2f curPos = (sf::Vector2f(mousePos) - canvasOffset) / zoomLevel;
-        sf::Color col(brushColor[0]*255, brushColor[1]*255, brushColor[2]*255);
+        sf::Color col(brushColor[0] * 255, brushColor[1] * 255, brushColor[2] * 255);
         editorUI.getCurrentTool()->onDrag(lastMousePos, curPos, col, brushSize);
         lastMousePos = curPos;
     }
 }
 
-void Application::render() {
-    window.clear(sf::Color(100,100,100));
+void Application::render()
+{
+    window.clear(sf::Color(100, 100, 100));
 
-    for(auto& layer : layerManager.getLayers()){
-        if(layer->isVisible()){
+    for (auto &layer : layerManager.getLayers())
+    {
+        if (layer->isVisible())
+        {
             sf::Sprite sprite = layer->getSprite();
             sprite.setPosition(canvasOffset);
             sprite.setScale(zoomLevel, zoomLevel);
@@ -296,30 +360,39 @@ void Application::render() {
         }
     }
 
-    if(showGrid) editorUI.renderGrid(window, canvasOffset, zoomLevel, canvasWidth, canvasHeight);
-    if(showRulers) editorUI.renderRulers(window, canvasOffset, zoomLevel, canvasWidth, canvasHeight);
+    if (showGrid)
+        editorUI.renderGrid(window, canvasOffset, zoomLevel, canvasWidth, canvasHeight);
+    if (showRulers)
+        editorUI.renderRulers(window, canvasOffset, zoomLevel, canvasWidth, canvasHeight);
 
     editorUI.renderSelectionOverlay(window, canvasOffset, zoomLevel);
-    if(editorUI.getCurrentToolName() == "Shape"){
-        auto* shape = dynamic_cast<ShapeTool*>(editorUI.getCurrentTool());
-        if(shape) shape->renderPreview(window, canvasOffset, zoomLevel);
+    if (editorUI.getCurrentToolName() == "Shape")
+    {
+        auto *shape = dynamic_cast<ShapeTool *>(editorUI.getCurrentTool());
+        if (shape)
+            shape->renderPreview(window, canvasOffset, zoomLevel);
     }
 
     editorUI.renderToolPanel(
         window,
-        [this](){ onLoadImage(); },
-        [this](){ onSaveImage(); },
-        [this](){ onClearCanvas(); },
-        [this](){ onResizeCanvas(); }
-    );
+        [this]()
+        { onLoadImage(); },
+        [this]()
+        { onSaveImage(); },
+        [this]()
+        { onClearCanvas(); },
+        [this]()
+        { onResizeCanvas(); });
 
     ImGui::SFML::Render(window);
     window.display();
 }
 
-void Application::run() {
+void Application::run()
+{
     sf::Clock frameClock;
-    while(window.isOpen()){
+    while (window.isOpen())
+    {
         processEvents();
         sf::Time dt = frameClock.restart();
         update(dt.asSeconds());

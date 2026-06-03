@@ -6,6 +6,8 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include <cstring>
+#include <fstream>
+#include <vector>
 #include "imgui.h"
 
 class TextTool : public Tool {
@@ -20,20 +22,40 @@ private:
     sf::Font cachedFont;
     bool fontLoaded;
 
+    static bool fileExists(const std::string& path) {
+        std::ifstream f(path.c_str());
+        return f.good();
+    }
+
     void loadFont() {
         if (fontLoaded) return;
-        if (cachedFont.loadFromFile("fonts/arialmt.ttf") ||
-            cachedFont.loadFromFile("fonts/arial.ttf") ||
-            cachedFont.loadFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf") ||
-            cachedFont.loadFromFile("C:/Windows/Fonts/arial.ttf")) {
-            fontLoaded = true;
-        } else {
-            fontLoaded = false;
+
+        // Приоритет: папка fonts/ рядом с программой, затем локальная папка, затем системные
+        std::vector<std::string> fontPaths = {
+            "fonts/arialmt.ttf",
+            "fonts/arial.ttf",
+            "arialmt.ttf",
+            "arial.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/ubuntu/Ubuntu-Regular.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+            "C:/Windows/Fonts/segoeui.ttf"
+        };
+
+        for (const auto& path : fontPaths) {
+            if (fileExists(path) && cachedFont.loadFromFile(path)) {
+                fontLoaded = true;
+                return;
+            }
         }
+        fontLoaded = false;
     }
 
 public:
-    TextTool(std::shared_ptr<Layer> l, Localization* loc) : layer(l), localization(loc), waitingForText(false), fontSize(20), fontLoaded(false) {
+    TextTool(std::shared_ptr<Layer> l, Localization* loc)
+        : layer(l), localization(loc), waitingForText(false), fontSize(20), fontLoaded(false)
+    {
         memset(inputBuffer, 0, sizeof(inputBuffer));
         loadFont();
     }
@@ -58,7 +80,9 @@ public:
             ImGui::OpenPopup("FontError");
             if (ImGui::BeginPopupModal("FontError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
                 ImGui::Text("Font not loaded. Cannot add text.");
-                if (ImGui::Button("OK")) {
+                ImGui::Text("Expected file: fonts/arialmt.ttf or arial.ttf");
+                ImGui::Text("in the program folder or system fonts.");
+                if (ImGui::Button("OK", ImVec2(120, 0))) {
                     ImGui::CloseCurrentPopup();
                     waitingForText = false;
                 }
