@@ -3,6 +3,7 @@
 #include "imgui-SFML.h"
 #include <cmath>
 #include <cstring>
+#include <fstream>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -12,6 +13,11 @@
     #include <cstdio>
     #include <array>
 #endif
+
+static bool fileExists(const std::string& path) {
+    std::ifstream f(path.c_str());
+    return f.good();
+}
 
 Application::Application()
     : window(sf::VideoMode(1600,1000), "Graphic Editor"),
@@ -28,16 +34,36 @@ Application::Application()
       isPanning(false)
 {
     window.setFramerateLimit(60);
-    ImGui::SFML::Init(window);
+    if (!ImGui::SFML::Init(window)) {
+        throw std::runtime_error("Failed to initialize ImGui-SFML");
+    }
 
     ImGuiIO& io = ImGui::GetIO();
-    ImFont* font = nullptr;
-    if (!font) font = io.Fonts->AddFontFromFileTTF("arialmt.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-    if (!font) font = io.Fonts->AddFontFromFileTTF("arial.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-    if (!font) font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-    if (!font) font = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/arial.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
-    if (font) {
-        io.FontDefault = font;
+    
+    std::vector<std::string> fontPaths = {
+        "arialmt.ttf",
+        "arial.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "C:/Windows/Fonts/arial.ttf"
+    };
+    
+    bool fontLoaded = false;
+    for (const auto& path : fontPaths) {
+        if (fileExists(path)) {
+            ImFont* font = io.Fonts->AddFontFromFileTTF(path.c_str(), 18.0f, nullptr, io.Fonts->GetGlyphRangesCyrillic());
+            if (font) {
+                io.FontDefault = font;
+                fontLoaded = true;
+                break;
+            }
+        }
+    }
+    
+    if (!fontLoaded) {
+        io.FontDefault = io.Fonts->AddFontDefault();
+    }
+    
+    if (io.FontDefault) {
         ImGui::SFML::UpdateFontTexture();
     }
 
@@ -47,6 +73,7 @@ Application::Application()
                            &showGrid, &showRulers,
                            &canvasWidth, &canvasHeight,
                            &mouseCanvasPos);
+    editorUI.setSaveStateCallback([this]() { saveStateForUndo(); });
     editorUI.initTools(layerManager.getCurrentLayer(), brushColor);
 }
 
@@ -56,6 +83,11 @@ void Application::saveStateForUndo() {
         sf::Image img = layer->getTexture().getTexture().copyToImage();
         history.saveState(img, layerManager.getCurrentLayerIndex());
     }
+}
+
+void Application::applyFilterWithUndo(std::function<void()> filterFunc) {
+    saveStateForUndo();
+    filterFunc();
 }
 
 std::string Application::openFileDialog() {
@@ -73,10 +105,11 @@ std::string Application::openFileDialog() {
     if (GetOpenFileNameA(&ofn)) return std::string(szFile);
     return "";
 #else
+    auto deleter = [](FILE* f) { if (f) pclose(f); };
+    std::unique_ptr<FILE, decltype(deleter)> pipe(popen("zenity --file-selection --title='Open Image'","r"), deleter);
+    if(!pipe) return "";
     std::array<char,128> buf;
     std::string res;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("zenity --file-selection --title='Open Image'","r"),pclose);
-    if(!pipe) return "";
     while(fgets(buf.data(),buf.size(),pipe.get())) res+=buf.data();
     if(!res.empty() && res.back()=='\n') res.pop_back();
     return res;
@@ -99,10 +132,11 @@ std::string Application::saveFileDialog() {
     if (GetSaveFileNameA(&ofn)) return std::string(szFile);
     return "";
 #else
+    auto deleter = [](FILE* f) { if (f) pclose(f); };
+    std::unique_ptr<FILE, decltype(deleter)> pipe(popen("zenity --file-selection --save --confirm-overwrite","r"), deleter);
+    if(!pipe) return "";
     std::array<char,128> buf;
     std::string res;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("zenity --file-selection --save --confirm-overwrite","r"),pclose);
-    if(!pipe) return "";
     while(fgets(buf.data(),buf.size(),pipe.get())) res+=buf.data();
     if(!res.empty() && res.back()=='\n') res.pop_back();
     if(!res.empty() && res.find('.')==std::string::npos) res+=".png";
@@ -237,7 +271,7 @@ void Application::processEvents() {
 }
 
 void Application::update(float dt) {
-    (void)dt; // пока не используется
+    (void)dt;
     sf::Vector2i mousePos = sf::Mouse::getPosition(window);
     sf::Vector2f canvasPos = (sf::Vector2f(mousePos) - canvasOffset) / zoomLevel;
     mouseCanvasPos = sf::Vector2i((int)canvasPos.x, (int)canvasPos.y);

@@ -46,7 +46,15 @@ public:
 
     void onDrag(sf::Vector2f from, sf::Vector2f to, sf::Color, float) override {
         if (isDraggingSelection) {
-            selectedAreaPos += to - from;
+            sf::Vector2f newPos = originalAreaPos + (to - from);
+            sf::Vector2u canvasSize = layer->getTexture().getSize();
+            float maxX = static_cast<float>(canvasSize.x - selectedArea.getSize().x);
+            float maxY = static_cast<float>(canvasSize.y - selectedArea.getSize().y);
+            if (maxX < 0) maxX = 0;
+            if (maxY < 0) maxY = 0;
+            newPos.x = std::max(0.0f, std::min(newPos.x, maxX));
+            newPos.y = std::max(0.0f, std::min(newPos.y, maxY));
+            selectedAreaPos = newPos;
         } else if (isSelecting) {
             selectionEnd = to;
         }

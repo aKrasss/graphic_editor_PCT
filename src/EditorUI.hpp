@@ -37,6 +37,8 @@ private:
     TextTool* textTool = nullptr;
     ShapeTool* shapeTool = nullptr;
 
+    std::function<void()> saveStateCallback;
+
     std::string getToolKey(const std::string& toolName) {
         if (toolName == "Brush") return "brush";
         if (toolName == "Fill") return "fill";
@@ -82,6 +84,10 @@ public:
         mouseCanvasPos = mousePos;
     }
 
+    void setSaveStateCallback(std::function<void()> callback) {
+        saveStateCallback = callback;
+    }
+
     void initTools(std::shared_ptr<Layer> layer, float* brushColorArray) {
         currentLayerForTools = layer;
         tools.clear();
@@ -96,7 +102,7 @@ public:
         tools.push_back(std::move(shape));                                      // 4
 
         tools.push_back(std::make_unique<SelectionTool>(layer));                // 5
-        tools.push_back(std::make_unique<TextTool>(layer, &localization));                     // 6
+        tools.push_back(std::make_unique<TextTool>(layer, &localization));      // 6
 
         currentTool = tools[0].get();
         setCurrentToolName(currentTool->getName());
@@ -138,6 +144,8 @@ public:
 
     template<typename FilterT, typename... Args>
     void applyFilter(Args&&... args) {
+        if (saveStateCallback) saveStateCallback();
+
         auto layer = layerManager.getCurrentLayer();
         if (!layer) return;
         sf::Image img = layer->getTexture().getTexture().copyToImage();

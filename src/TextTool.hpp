@@ -22,8 +22,8 @@ private:
 
     void loadFont() {
         if (fontLoaded) return;
-        if (cachedFont.loadFromFile("arialmt.ttf") ||
-            cachedFont.loadFromFile("arial.ttf") ||
+        if (cachedFont.loadFromFile("fonts/arialmt.ttf") ||
+            cachedFont.loadFromFile("fonts/arial.ttf") ||
             cachedFont.loadFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf") ||
             cachedFont.loadFromFile("C:/Windows/Fonts/arial.ttf")) {
             fontLoaded = true;
@@ -53,6 +53,22 @@ public:
 
     void renderTextPopup() {
         if (!waitingForText) return;
+
+        if (!fontLoaded) {
+            ImGui::OpenPopup("FontError");
+            if (ImGui::BeginPopupModal("FontError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Font not loaded. Cannot add text.");
+                if (ImGui::Button("OK")) {
+                    ImGui::CloseCurrentPopup();
+                    waitingForText = false;
+                }
+                ImGui::EndPopup();
+            } else {
+                waitingForText = false;
+            }
+            return;
+        }
+
         ImGui::OpenPopup(localization->get("text_dialog_title").c_str());
         if (ImGui::BeginPopupModal(localization->get("text_dialog_title").c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::Text("%s:", localization->get("text_label").c_str());
@@ -62,7 +78,7 @@ public:
             if (fontSize < 6) fontSize = 6;
 
             if (ImGui::Button(localization->get("ok").c_str())) {
-                if (strlen(inputBuffer) > 0 && layer && fontLoaded) {
+                if (strlen(inputBuffer) > 0 && layer) {
                     sf::Text text;
                     text.setFont(cachedFont);
                     sf::String utf8String = sf::String::fromUtf8(inputBuffer, inputBuffer + strlen(inputBuffer));

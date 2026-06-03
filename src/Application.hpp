@@ -45,5 +45,5 @@ class Application {
     public:
         Application();
         void run();
-
+        void applyFilterWithUndo(std::function<void()> filterFunc);
 };

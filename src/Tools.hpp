@@ -17,6 +17,7 @@ public:
         brush.setFillColor(color);
         brush.setPosition(pos.x - size, pos.y - size);
         layer->getTexture().draw(brush);
+        layer->display();
     }
     void onDrag(sf::Vector2f from, sf::Vector2f to, sf::Color color, float size) override {
         if (!layer) return;
@@ -30,6 +31,7 @@ public:
             brush.setPosition(pos.x - size, pos.y - size);
             layer->getTexture().draw(brush);
         }
+        layer->display();
     }
     void onRelease() override { if (layer) layer->display(); }
     std::string getName() const override { return "Brush"; }
@@ -85,6 +87,7 @@ public:
         brush.setFillColor(sf::Color::White);
         brush.setPosition(pos.x - size, pos.y - size);
         layer->getTexture().draw(brush);
+        layer->display();
     }
     void onDrag(sf::Vector2f from, sf::Vector2f to, sf::Color, float size) override {
         if (!layer) return;
@@ -98,6 +101,7 @@ public:
             brush.setPosition(pos.x - size, pos.y - size);
             layer->getTexture().draw(brush);
         }
+        layer->display();
     }
     void onRelease() override { if (layer) layer->display(); }
     std::string getName() const override { return "Eraser"; }
