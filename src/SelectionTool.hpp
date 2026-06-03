@@ -12,10 +12,10 @@ private:
     bool isSelecting;
     bool hasSelection;
     sf::Image selectedArea;
-    sf::Vector2f selectedAreaPos;      // текущая позиция выделенной области
+    sf::Vector2f selectedAreaPos;
     bool isDraggingSelection;
-    sf::Vector2f dragStartPos;         // начальная позиция мыши при перетаскивании
-    sf::Vector2f dragStartSelectionPos; // начальная позиция выделения при перетаскивании
+    sf::Vector2f dragStartPos;
+    sf::Vector2f dragStartSelectionPos;
     sf::Color overlayColor;
 
 public:
@@ -38,6 +38,10 @@ public:
             } else {
                 hasSelection = false;
                 selectedArea = sf::Image();
+                isSelecting = true;
+                selectionStart = pos;
+                selectionEnd = pos;
+                return;
             }
         }
         isSelecting = true;
@@ -47,11 +51,9 @@ public:
 
     void onDrag(sf::Vector2f /*from*/, sf::Vector2f to, sf::Color, float) override {
         if (isDraggingSelection) {
-            // Вычисляем новую позицию от начальной точки перетаскивания
             sf::Vector2f delta = to - dragStartPos;
             sf::Vector2f newPos = dragStartSelectionPos + delta;
 
-            // Ограничиваем границами холста
             sf::Vector2u canvasSize = layer->getTexture().getSize();
             float maxX = static_cast<float>(canvasSize.x - selectedArea.getSize().x);
             float maxY = static_cast<float>(canvasSize.y - selectedArea.getSize().y);
@@ -72,7 +74,6 @@ public:
                 isDraggingSelection = false;
                 return;
             }
-            // Затираем старую область (на месте dragStartSelectionPos) белым цветом
             sf::Image layerImage = layer->getTexture().getTexture().copyToImage();
             int x1 = (int)dragStartSelectionPos.x;
             int y1 = (int)dragStartSelectionPos.y;
@@ -89,15 +90,27 @@ public:
             layer->getTexture().clear(sf::Color::Transparent);
             layer->getTexture().draw(sf::Sprite(texClear));
 
-            // Вставляем выделение на новое место
             sf::Texture texArea; texArea.loadFromImage(selectedArea);
             sf::Sprite sprite(texArea);
             sprite.setPosition(selectedAreaPos);
             layer->getTexture().draw(sprite);
             layer->display();
 
-            hasSelection = false;
-            selectedArea = sf::Image();
+            sf::Image newSelectedArea;
+            newSelectedArea.create(w, h);
+            sf::Image updatedLayerImage = layer->getTexture().getTexture().copyToImage();
+            for (int y = 0; y < h; ++y) {
+                for (int x = 0; x < w; ++x) {
+                    int sx = (int)selectedAreaPos.x + x;
+                    int sy = (int)selectedAreaPos.y + y;
+                    if (sx >= 0 && sx < (int)updatedLayerImage.getSize().x && sy >= 0 && sy < (int)updatedLayerImage.getSize().y) {
+                        newSelectedArea.setPixel(x, y, updatedLayerImage.getPixel(sx, sy));
+                    } else {
+                        newSelectedArea.setPixel(x, y, sf::Color::White);
+                    }
+                }
+            }
+            selectedArea = std::move(newSelectedArea);
             isDraggingSelection = false;
         }
         else if (isSelecting) {

@@ -280,16 +280,24 @@ public:
         if (canvasWidth && canvasHeight)
         {
             ImGui::Text("%s:", localization.get("canvas_size").c_str());
+            
+            static int prevWidth = *canvasWidth;
+            static int prevHeight = *canvasHeight;
+            
             ImGui::InputInt("Width##canvas", canvasWidth);
             *canvasWidth = std::max(100, std::min(*canvasWidth, 5000));
             ImGui::InputInt("Height##canvas", canvasHeight);
             *canvasHeight = std::max(100, std::min(*canvasHeight, 5000));
-            if (ImGui::Button(localization.get("apply_size").c_str(), ImVec2(280, 25)))
+            
+            // Если значения изменились, вызываем callback немедленно
+            if ((prevWidth != *canvasWidth || prevHeight != *canvasHeight) && onResizeCanvas)
             {
-                if (onResizeCanvas)
-                    onResizeCanvas();
+                onResizeCanvas();
+                prevWidth = *canvasWidth;
+                prevHeight = *canvasHeight;
             }
         }
+
         ImGui::Separator();
 
         if (brushSize && brushColor)
@@ -550,14 +558,14 @@ public:
     }
 
     void renderSelectionOverlay(sf::RenderWindow& window, sf::Vector2f canvasOffset, float zoomLevel) {
-    if (selectionTool && selectionTool->isActive()) {
-        sf::FloatRect rect = selectionTool->getSelectionRect();
-        if (rect.width > 0 && rect.height > 0) {
-            sf::RectangleShape overlay(sf::Vector2f(rect.width * zoomLevel, rect.height * zoomLevel));
-            overlay.setPosition(canvasOffset.x + rect.left * zoomLevel, canvasOffset.y + rect.top * zoomLevel);
-            overlay.setFillColor(selectionTool->getOverlayColor());
-            window.draw(overlay);
+        if (selectionTool && selectionTool->isActive()) {
+            sf::FloatRect rect = selectionTool->getSelectionRect();
+            if (rect.width > 0 && rect.height > 0) {
+                sf::RectangleShape overlay(sf::Vector2f(rect.width * zoomLevel, rect.height * zoomLevel));
+                overlay.setPosition(canvasOffset.x + rect.left * zoomLevel, canvasOffset.y + rect.top * zoomLevel);
+                overlay.setFillColor(selectionTool->getOverlayColor());
+                window.draw(overlay);
+            }
         }
     }
-}
 };

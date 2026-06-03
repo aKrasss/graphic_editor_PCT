@@ -11,6 +11,7 @@ class Application {
         void update(float dt);
         void render();
         void saveStateForUndo();
+        void centerCanvas();
 
         void onLoadImage();
         void onSaveImage();
@@ -45,5 +46,6 @@ class Application {
     public:
         Application();
         void run();
+
         void applyFilterWithUndo(std::function<void()> filterFunc);
 };

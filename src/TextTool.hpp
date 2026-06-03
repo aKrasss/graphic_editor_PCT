@@ -29,8 +29,6 @@ private:
 
     void loadFont() {
         if (fontLoaded) return;
-
-        // Приоритет: папка fonts/ рядом с программой, затем локальная папка, затем системные
         std::vector<std::string> fontPaths = {
             "fonts/arialmt.ttf",
             "fonts/arial.ttf",
